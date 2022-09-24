@@ -1,3 +1,9 @@
+I've used this tool a bit at work, and had some ideas for features I wanted to see, so here we are!
+
+I'm largely a backend engineer, so this might be an interesting way to get back up to speed (a bit) with JS/TS.
+
+---
+
 # har2openapi
 
 This program automatically creates API documentation via a OpenApi Spec (OAS) file by using network requests captured in 
@@ -17,7 +23,7 @@ There are many other ways to generate HAR files so go crazy. Google is your frie
 ## Step 2 - Generate request/response examples
 Start by copying `config.json.template` to `config.json`. Once you have a valid config.json file, run
 ``` bash
-node index.js generate outputFilename.json inputHarFile1.json inputHarFile2.json inputHarFile3.json...
+node index.js examples outputFilename.json inputHarFile1.json inputHarFile2.json inputHarFile3.json...
 ```
 
 This command consumes one or more HAR files and outputs an OAS file. A few additional files are created for your convenience:
@@ -32,7 +38,7 @@ and repeat generating the OAS file again.
 
 ### Replace strings in path
 In the config file, you can set your API base path and any number of search/replace commands. For each parameter in
-```javascript
+```json
 ...
   "pathReplace": {
     "key": "value",
@@ -55,7 +61,7 @@ and automatically move the path IDs into path parameters in the OAS file.
 In addition to path parameters, there are instances when we want to remove certain strings from anywhere in the endpoint defintion
 including request examples, response examples, etc. Specifically, you may want to remove secrets like passwords, sessionIds, and other things 
 you probably don't want in your OAS file. To do this, add search/replace items here:
-```javascript
+```json
 ...
   "replace": {
     "secret": ""
@@ -66,7 +72,7 @@ you probably don't want in your OAS file. To do this, add search/replace items h
 Each endpoint definition (aka operation) in the OAS file can have a tag which assists renders in grouping related endpoints
 together. Config.json allows you to search for text in the path and assign matches to a specific Tag.
 
-```javascript
+```json
 ...
   "tags": [
     ["slides"],
@@ -87,7 +93,7 @@ edit the generated OAS file directly.
 After you have manually edited your OAS file, you can generate json schemas for all request and response examples and generate 
 x-code-samples by running
 ```bash
-node index.js samples output/generated.json output/withSchema.json
+node index.js schema output/generated.json output/withSchema.json
 ```
 This command consumes the (presumably edited) generated.json OAS file and outputs a new OAS file containing json schemas and x-code-samples. 
 It also creates an additional file for your convenience:
