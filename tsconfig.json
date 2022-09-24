@@ -8,7 +8,8 @@
     "outDir": "./",
     "preserveConstEnums": true,
     "sourceMap": false,
-    "target": "es6"
+    "target": "es6",
+    "strictNullChecks": true
   },
   "include": [
     "**/*.ts"
