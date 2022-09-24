@@ -41,6 +41,17 @@ interface SchemaFile {
   }
 }
 
+interface Config {
+  apiBasePath: string
+  pathReplace: {
+    [search: string]: string
+  }
+  replace: {
+    [search: string]: string
+  }
+  tags: string[][]
+}
+
 const pad = (m: number, width: number, z = '0'): string => {
   const n = m.toString()
   return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n
@@ -222,47 +233,6 @@ const capitalize = (s: string): string => {
   if (typeof s !== 'string') return ''
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
-
-const combineMerge = (target, source, options): void => {
-  const destination = target.slice()
-
-  source.forEach((item, index) => {
-    if (typeof destination[index] === 'undefined') {
-      destination[index] = options.cloneUnlessOtherwiseSpecified(item, options)
-    } else if (options.isMergeableObject(item)) {
-      destination[index] = merge(target[index], item, options)
-    } else if (target.indexOf(item) === -1) {
-      destination.push(item)
-    }
-  })
-  return destination
-}
-
-/*
-const createJsonSchemas = (spec: OpenApiSpec): void => {
-    Object.keys(spec.paths).forEach(path => {
-        Object.keys(spec.paths[path]).forEach(method => {
-            const requestExample = spec.paths[path][method].requestBody?.content["application/json"]?.examples["example-1"]?.value
-            if (requestExample) {
-                // translate request example-1 into request schema somehow
-                // spec.paths[path][method].requestBody.content["application/json"].schema = toJsonSchema(requestExample)
-                spec.paths[path][method].requestBody.content["application/json"].schema = jsonSchemaGenerator(requestExample)
-                delete spec.paths[path][method].requestBody.content["application/json"].schema["$schema"]
-            }
-            for (const response in spec.paths[path][method].responses) {
-                // translate response example-1 into response schema
-                const responseExample = spec.paths[path][method].responses[response]?.content?.["application/json"]?.examples["example-1"]?.value
-                // if (responseExample) spec.paths[path][method].responses[response].content["application/json"].schema = toJsonSchema(responseExample)
-                if (responseExample) {
-                    spec.paths[path][method].responses[response].content["application/json"].schema = jsonSchemaGenerator(responseExample)
-                    delete spec.paths[path][method].responses[response].content["application/json"].schema["$schema"]
-                }
-            }
-
-        })
-    })
-}
-*/
 
 const createXcodeSamples = (spec: OpenApiSpec): void => {
   Object.keys(spec.paths).forEach(path => {
@@ -1238,16 +1208,48 @@ const listEndpoints = (): void => {
   })
 }
 
-interface Config {
-  apiBasePath: string
-  pathReplace: {
-    [search: string]: string
-  }
-  replace: {
-    [search: string]: string
-  }
-  tags: string[][]
+/*
+const combineMerge = (target, source, options): void => {
+  const destination = target.slice()
+
+  source.forEach((item, index) => {
+    if (typeof destination[index] === 'undefined') {
+      destination[index] = options.cloneUnlessOtherwiseSpecified(item, options)
+    } else if (options.isMergeableObject(item)) {
+      destination[index] = merge(target[index], item, options)
+    } else if (target.indexOf(item) === -1) {
+      destination.push(item)
+    }
+  })
+  return destination
 }
+*/
+
+/*
+const createJsonSchemas = (spec: OpenApiSpec): void => {
+    Object.keys(spec.paths).forEach(path => {
+        Object.keys(spec.paths[path]).forEach(method => {
+            const requestExample = spec.paths[path][method].requestBody?.content["application/json"]?.examples["example-1"]?.value
+            if (requestExample) {
+                // translate request example-1 into request schema somehow
+                // spec.paths[path][method].requestBody.content["application/json"].schema = toJsonSchema(requestExample)
+                spec.paths[path][method].requestBody.content["application/json"].schema = jsonSchemaGenerator(requestExample)
+                delete spec.paths[path][method].requestBody.content["application/json"].schema["$schema"]
+            }
+            for (const response in spec.paths[path][method].responses) {
+                // translate response example-1 into response schema
+                const responseExample = spec.paths[path][method].responses[response]?.content?.["application/json"]?.examples["example-1"]?.value
+                // if (responseExample) spec.paths[path][method].responses[response].content["application/json"].schema = toJsonSchema(responseExample)
+                if (responseExample) {
+                    spec.paths[path][method].responses[response].content["application/json"].schema = jsonSchemaGenerator(responseExample)
+                    delete spec.paths[path][method].responses[response].content["application/json"].schema["$schema"]
+                }
+            }
+
+        })
+    })
+}
+*/
 
 export {
   generateSamples,
