@@ -17,12 +17,8 @@ module.exports = {
         project: ['./tsconfig.json']
       },
       rules: {
-        '@typescript-eslint/strict-boolean-expressions': [2,
-          {
-            allowString: true,
-            allowNumber: true
-          }
-        ]
+        '@typescript-eslint/require-array-sort-compare': 0,
+        '@typescript-eslint/strict-boolean-expressions': 0
       }
     }
   ]

@@ -12,6 +12,7 @@ import * as deref from 'json-schema-deref-sync'
 import * as toOpenApiSchema from '@openapi-contrib/json-schema-to-openapi-schema'
 import * as recursive from 'recursive-readdir'
 import * as _ from 'lodash'
+import { JSONInput } from 'quicktype/dist/quicktype-core'
 
 interface ExampleFile {
   [path: string]: {
@@ -55,7 +56,7 @@ const pad = (m: number, width: number, z = '0'): string => {
   return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n
 }
 
-async function quicktypeJSON (targetLanguage: string, typeName: string, sampleArray: any[]): Promise<object> {
+async function quicktypeJSON (targetLanguage: string, typeName: string, sampleArray: any[]): Promise<{ properties?: { element?: any } }> {
   const jsonInput = jsonInputForTargetLanguage(targetLanguage)
 
   await jsonInput.addSource({
@@ -606,7 +607,10 @@ const mergeRequestExample = (specMethod: OperationObject, postData: any): void =
           }
         }
       }
-      const examples = specMethod.requestBody.content['application/json'].examples
+      let examples
+      if ('content' in specMethod.requestBody) {
+        examples = specMethod.requestBody.content['application/json'].examples
+      }
 
       // do not add example if it is duplicate of another example
       const dataString = JSON.stringify(data)
@@ -718,7 +722,7 @@ const parseHarFileIntoIndividualFiles = (filename: string): void => {
 
     // decode base64 now before writing pretty har file
     data.log.entries.forEach((item, index) => {
-      if (item.response.content.encoding === 'base64') {
+      if (item.response.content.encoding === 'base64' && item.response.content.text) {
         data.log.entries[index].response.content.text = Buffer.from(item.response.content.text, 'base64').toString()
         delete data.log.entries[index].response.content.encoding
       }
@@ -741,7 +745,7 @@ const parseHarFile = (filename: string): object => {
 
     // decode base64 now before writing pretty har file
     data.log.entries.forEach((item, index) => {
-      if (item.response.content.encoding === 'base64') {
+      if (item.response.content.encoding === 'base64' && item.response.content.text) {
         data.log.entries[index].response.content.text = Buffer.from(item.response.content.text, 'base64').toString()
         delete data.log.entries[index].response.content.encoding
       }
@@ -798,7 +802,7 @@ const writeExamples = (spec: OpenApiSpec): void => {
         let exampleNum = 0
         for (const example in examples) {
           exampleNum++
-          if (exampleNum < 2 || exampleCount != 2) {
+          if (exampleNum < 2 || exampleCount !== 2) {
             if (!shoji || examples[example].value.element?.includes('shoji')) {
               specExamples[path][lMethod].request[example] = examples[example].value
             } else {
@@ -936,6 +940,7 @@ const generateSchema = async (exampleFilename: string): Promise<OpenApiSpec> => 
           }
         }
         methodObject.requestBody.content['application/json'].schema = await toOpenApiSchema(jsonSchema)
+          // eslint-disable-next-line n/handle-callback-err
           .catch(err => {
             console.log('ERROR CONVERTING TO OPENAPI SCHEMA, USING JSON SCHEMA')
             methodObject.requestBody.content['application/json'].schema = jsonSchema
@@ -980,6 +985,7 @@ const generateSchema = async (exampleFilename: string): Promise<OpenApiSpec> => 
             }
           }
           methodObject.responses[statusCode].content['application/json'].schema = await toOpenApiSchema(jsonSchema)
+            // eslint-disable-next-line n/handle-callback-err
             .catch(err => {
               console.log('ERROR CONVERTING TO OPENAPI SCHEMA, USING JSON SCHEMA')
               methodObject.responses[statusCode].content['application/json'].schema = jsonSchema
@@ -1057,6 +1063,7 @@ const QAPaths = (spec: OpenApiSpec): void => {
             const responseExampleMessage = method.responses[responseCode].content?.['application/json']?.examples['example-1']?.value?.message
             if (responseExampleMessage === 'Nothing matches the given URI') {
               console.log(responseExampleMessage)
+              // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
               delete method.responses[responseCode]
             }
           }
@@ -1101,7 +1108,8 @@ const postProduction = (): void => {
   recursive(
     '/home/dcarr/git/crunch/zoom/server/src/cr/server/api',
     ['*.py*'],
-    function (err, files) {
+    // eslint-disable-next-line n/handle-callback-err
+    function (err, files: string[]) {
       for (const filename of files) {
         if (filename.includes('openapi') && !filename.includes('openapi.json')) {
           console.log(`ANALYZING OPENAPI FILE ${filename}`)
