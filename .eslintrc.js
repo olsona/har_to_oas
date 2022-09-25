@@ -5,13 +5,25 @@ module.exports = {
     es2021: true
   },
   extends: 'standard-with-typescript',
-  overrides: [
-  ],
+  parser: '@typescript-eslint/parser',
   parserOptions: {
-    ecmaVersion: 'latest',
-    tsconfigRootDir: __dirname,
-    project: ['./tsconfig.json']
+    ecmaVersion: 'latest'
   },
-  rules: {
-  }
+  overrides: [
+    {
+      files: ['*.ts', '*.tsx'],
+      parserOptions: {
+        tsconfigRootDir: __dirname,
+        project: ['./tsconfig.json']
+      },
+      rules: {
+        '@typescript-eslint/strict-boolean-expressions': [2,
+          {
+            allowString: true,
+            allowNumber: true
+          }
+        ]
+      }
+    }
+  ]
 }

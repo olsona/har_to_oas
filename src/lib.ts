@@ -1,19 +1,17 @@
-import { createEmptyApiSpec, OpenApiBuilder, OpenApiSpec, OperationObject } from '@loopback/openapi-v3-types'
+import { createEmptyApiSpec, OpenApiSpec, OperationObject } from '@loopback/openapi-v3-types'
 import * as merge from 'deepmerge'
 import { readFileSync, writeFileSync } from 'fs'
 import { Har } from 'har-format'
 import * as YAML from 'js-yaml'
-import * as jsonSchemaGenerator from 'json-schema-generator'
 import * as parseJson from 'parse-json'
 import * as pluralize from 'pluralize'
 import { exit } from 'process'
 import * as sortJson from 'sort-json'
-import { JSONSchema4, JSONSchema6 } from 'json-schema'
-import { jsonInputForTargetLanguage, quicktype, InputData, JSONSchemaInput, JSONSchemaStore } from 'quicktype-core'
-import * as refParser from '@apidevtools/json-schema-ref-parser'
+import { jsonInputForTargetLanguage, quicktype, InputData } from 'quicktype-core'
 import * as deref from 'json-schema-deref-sync'
 import * as toOpenApiSchema from '@openapi-contrib/json-schema-to-openapi-schema'
 import * as recursive from 'recursive-readdir'
+import * as _ from 'lodash'
 
 interface ExampleFile {
   [path: string]: {
@@ -239,7 +237,6 @@ const createXcodeSamples = (spec: OpenApiSpec): void => {
     Object.keys(spec.paths[path]).forEach(lMethod => {
       if (lMethod === 'parameters') return
       const method = spec.paths[path][lMethod]
-      const samples = []
       const scrubbedPath = path
         .replace(/{dataset_id}/g, '0001a')
         .replace(/{variable_id}/g, '0001b')
@@ -271,7 +268,7 @@ const createXcodeSamples = (spec: OpenApiSpec): void => {
         .replace(/{format}/g, '0001ab')
         .replace(/{dashboard_id}/g, '0001ac')
 
-      if (!method['x-code-samples']) method['x-code-samples'] = []
+      method['x-code-samples'] = method['x-code-samples'] ?? []
 
       // create curl code
       let data
@@ -281,7 +278,7 @@ const createXcodeSamples = (spec: OpenApiSpec): void => {
       const examples = method.requestBody?.content?.['application/json']?.examples
       if (examples) {
         const exampleList = Object.keys(examples)
-        if (exampleList.length > 0) {
+        if (exampleList.length) {
           const firstExample = exampleList[0]
           data = method.requestBody?.content?.['application/json']?.examples?.[firstExample]?.value
         }
@@ -395,10 +392,10 @@ const createXcodeSamples = (spec: OpenApiSpec): void => {
 }
 
 const deriveSummary = (method: string, path: string): string => {
-  const pathParts = path.split('/')
-  const lastParam = pathParts.length > 1 ? pathParts[pathParts.length - 2] : ''
-  const lastLastParam = pathParts.length > 3 ? pathParts[pathParts.length - 4] : ''
-  const obj = lastParam.includes('_id') ? lastParam.replace(/[{}]|_id/g, '') : ''
+  const pathParts: string[] = path.split('/')
+  const lastParam: string = pathParts.length > 1 ? pathParts[pathParts.length - 2] : ''
+  const lastLastParam: string = pathParts.length > 3 ? pathParts[pathParts.length - 4] : ''
+  const obj: string = lastParam.includes('_id') ? lastParam.replace(/[{}]|_id/g, '') : ''
   switch (lastParam) {
     case 'login':
       return 'Log in'
@@ -494,10 +491,10 @@ const generateSpec = (inputFilenames: string[], outputFilename: string, config: 
     }
 
     // filter and collapse path urls
-    const filteredUrl = filterUrl(config, item.request.url)
+    const filteredUrl: string = filterUrl(config, item.request.url)
 
     // continue if url is blank
-    if (!filteredUrl) return
+    if (filteredUrl === '') return
 
     // create path
     if (!spec.paths[filteredUrl]) addPath(filteredUrl, spec)
@@ -585,10 +582,12 @@ const mergeFiles = (masterFilename: string, toMergeFilename: string, outputFilen
 
 const mergeRequestExample = (specMethod: OperationObject, postData: any): void => {
   // if (postData.mimeType === null) { // data sent
-  if (postData.text) { // data sent
+  if (_.has(postData, 'text')) { // data sent
     try {
-      const data = JSON.parse(postData.encoding == 'base64' ? Buffer.from(postData.text, 'base64').toString() : postData.text)
-      // if (Object.keys(data).length < 1) return;
+      const toParse = postData.encoding === 'base64'
+        ? Buffer.from(postData.text, 'base64').toString
+        : postData.text
+      const data = JSON.parse(toParse)
 
       if (specMethod.requestBody == null) {
         specMethod.requestBody = {
@@ -606,7 +605,6 @@ const mergeRequestExample = (specMethod: OperationObject, postData: any): void =
             }
           }
         }
-        specMethod.requestBody.content['application/json'].examples['example-0001']
       }
       const examples = specMethod.requestBody.content['application/json'].examples
 
@@ -713,7 +711,7 @@ const parseHarFileIntoIndividualFiles = (filename: string): void => {
   const file = readFileSync(`input/${filename}`, 'utf8')
   try {
     const data: Har = JSON.parse(file)
-    if (!data.log) {
+    if (!_.has(data, 'log')) {
       console.log('Invalid har file')
       exit(1)
     }
@@ -736,7 +734,7 @@ const parseHarFile = (filename: string): object => {
   const file = readFileSync(filename, 'utf8')
   try {
     const data: Har = JSON.parse(file)
-    if (!data.log) {
+    if (!_.has(data, 'log')) {
       console.log('Invalid har file')
       exit(1)
     }
@@ -820,7 +818,7 @@ const writeExamples = (spec: OpenApiSpec): void => {
           let exampleNum = 0
           for (const example in examples) {
             exampleNum++
-            if (exampleNum < 2 || exampleCount != 2) specExamples[path][lMethod].response[status][example] = examples[example].value
+            if (exampleNum < 2 || exampleCount !== 2) specExamples[path][lMethod].response[status][example] = examples[example].value
           }
         }
       }
@@ -835,101 +833,21 @@ const writeExamples = (spec: OpenApiSpec): void => {
   writeFileSync('output/examples.json', JSON.stringify(sortedExamples, null, 2))
 }
 
-const shortenExamples = (spec: OpenApiSpec): void => {
-  // limit size after all responses and requests have been merged
-  Object.keys(spec.paths).forEach(path => {
-    Object.keys(spec.paths[path]).forEach(lMethod => {
-      const method = spec.paths[path][lMethod]
-
-      // look at requestBody
-      let data = method.requestBody?.content?.['application/json']?.examples?.['example-1']?.value?.body?.table
-      if (data) {
-        const dataKeys = ['metadata']
-        dataKeys.forEach(dataKey => {
-          if (data[dataKey] && Object.keys(data[dataKey].length > 2)) {
-            const keys = Object.keys(data[dataKey])
-            const newData = {}
-            for (let i = 2; i > 0; i--) {
-              newData[keys[keys.length - i]] = data[dataKey][keys[keys.length - i]]
-            }
-            data[dataKey] = newData
-          }
-        })
-      }
-      data = method.requestBody?.content?.['application/json']?.examples?.['example-1']?.value
-      if (data) {
-        const dataKeys = ['variables', 'index']
-        dataKeys.forEach(dataKey => {
-          if (data[dataKey] && Object.keys(data[dataKey].length > 3)) {
-            const keys = Object.keys(data[dataKey])
-            const newData = {}
-            for (let i = 3; i > 0; i--) {
-              newData[keys[keys.length - i]] = data[dataKey][keys[keys.length - i]]
-            }
-            data[dataKey] = newData
-          }
-        })
-      }
-      data = method.requestBody?.content?.['application/json']?.examples?.['example-1']?.value?.body?.preferences
-      if (data) {
-        const dataKeys = ['openedDecks']
-        dataKeys.forEach(dataKey => {
-          if (data[dataKey] && Object.keys(data[dataKey].length > 2)) {
-            const keys = Object.keys(data[dataKey])
-            const newData = {}
-            for (let i = 2; i > 0; i--) {
-              newData[keys[keys.length - i]] = data[dataKey][keys[keys.length - i]]
-            }
-            data[dataKey] = newData
-          }
-        })
-      }
-
-      // look at responses
-      for (const status in method.responses) {
-        const data = method.responses?.[status]?.content?.['application/json']?.examples?.['example-1']?.value
-        if (data) {
-          // if index.length > 2 then remove all but last 2 entries
-          const dataKeys = ['metadata', 'index', 'graph']
-          dataKeys.forEach(dataKey => {
-            if (data[dataKey] && Object.keys(data[dataKey].length > 2)) {
-              const keys = Object.keys(data[dataKey])
-              const newData = {}
-              for (let i = 2; i > 0; i--) {
-                newData[keys[keys.length - i]] = data[dataKey][keys[keys.length - i]]
-              }
-              data[dataKey] = newData
-            }
-          })
-        }
-      }
-    })
-  })
-}
-
-const validateExampleList = (exampleObject: Object, exampleObjectName: string, exampleFilename: string): object => {
-  const exampleCount = Object.keys(exampleObject).length
-  let gexampleCount = 0
-  const allExamples = []
-  const publishExamplesArray = []
+const validateExampleList = (exampleObject: Object, exampleObjectName: string, exampleFilename: string): { allExamples: string[], publishExamples: object, firstExample: any } => {
+  const allExamples: string[] = []
+  const publishExamplesArray: any[] = []
   for (const exampleName in exampleObject) {
     allExamples.push(JSON.stringify(exampleObject[exampleName]))
-    if (exampleName.includes('gexample')) {
-      gexampleCount += 1
-      publishExamplesArray.push(exampleObject[exampleName])
-    }
+    publishExamplesArray.push(exampleObject[exampleName])
   }
-  if (exampleCount && !gexampleCount) {
-    console.log(`${exampleObjectName} has ${exampleCount} examples with no gexamples - edit ${exampleFilename} again`)
-    exit(1)
-  }
+
   // renumber examples
   const padWidth = Math.floor(publishExamplesArray.length / 10) + 1
   const publishExamples = {}
   let firstExample: any
   for (let i = 0; i < publishExamplesArray.length; i++) {
     const exampleName = `example-${pad(i + 1, padWidth)}`
-    if (!firstExample) firstExample = publishExamplesArray[i]
+    if (firstExample === undefined) firstExample = publishExamplesArray[i]
     publishExamples[exampleName] = { value: publishExamplesArray[i] }
   }
 
@@ -981,10 +899,18 @@ const generateSchema = async (exampleFilename: string): Promise<OpenApiSpec> => 
       const numExamples = Object.keys(masterExamples[path][method].request).length
       console.log(path, method, 'request', numExamples)
       if (numExamples) {
-        const exampleStats = validateExampleList(masterExamples[path][method].request, `${path} ${method} requests`, exampleFilename)
-        const jsonSchema = await quicktypeJSON('schema', [path, method, 'request'].join('-'), exampleStats.allExamples)
+        const { allExamples, publishExamples, firstExample } = validateExampleList(
+          masterExamples[path][method].request,
+          `${path} ${method} requests`,
+          exampleFilename
+        )
+        const jsonSchema = await quicktypeJSON(
+          'schema',
+          [path, method, 'request'].join('-'),
+          allExamples
+        )
         if (jsonSchema.properties?.element) {
-          switch (exampleStats.firstExample.element) {
+          switch (firstExample.element) {
             case 'shoji:entity':
               jsonSchema.properties.element = {
                 $ref: '#/components/schemas/Shoji-entity-element'
@@ -1014,14 +940,18 @@ const generateSchema = async (exampleFilename: string): Promise<OpenApiSpec> => 
             console.log('ERROR CONVERTING TO OPENAPI SCHEMA, USING JSON SCHEMA')
             methodObject.requestBody.content['application/json'].schema = jsonSchema
           })
-        methodObject.requestBody.content['application/json'].examples = exampleStats.publishExamples
+        methodObject.requestBody.content['application/json'].examples = publishExamples
       }
 
       for (const statusCode in masterExamples[path][method].response) {
         const numExamples = Object.keys(masterExamples[path][method].response[statusCode]).length
         console.log(path, method, statusCode, numExamples)
         if (numExamples) {
-          const exampleStats = validateExampleList(masterExamples[path][method].response[statusCode], `${path} ${method} requests`, exampleFilename)
+          const exampleStats = validateExampleList(
+            masterExamples[path][method].response[statusCode],
+            `${path} ${method} requests`,
+            exampleFilename
+          )
           const jsonSchema = await quicktypeJSON('schema', [path, method, 'request'].join('-'), exampleStats.allExamples)
           if (jsonSchema.properties?.element) {
             switch (exampleStats.firstExample.element) {
@@ -1168,7 +1098,6 @@ const QAPaths = (spec: OpenApiSpec): void => {
 }
 
 const postProduction = (): void => {
-  const yamlFiles = []
   recursive(
     '/home/dcarr/git/crunch/zoom/server/src/cr/server/api',
     ['*.py*'],
@@ -1223,9 +1152,7 @@ const combineMerge = (target, source, options): void => {
   })
   return destination
 }
-*/
 
-/*
 const createJsonSchemas = (spec: OpenApiSpec): void => {
     Object.keys(spec.paths).forEach(path => {
         Object.keys(spec.paths[path]).forEach(method => {
@@ -1248,6 +1175,78 @@ const createJsonSchemas = (spec: OpenApiSpec): void => {
 
         })
     })
+}
+
+const shortenExamples = (spec: OpenApiSpec): void => {
+  // limit size after all responses and requests have been merged
+  Object.keys(spec.paths).forEach(path => {
+    Object.keys(spec.paths[path]).forEach(lMethod => {
+      const method = spec.paths[path][lMethod]
+
+      // look at requestBody
+      let data = method.requestBody?.content?.['application/json']?.examples?.['example-1']?.value?.body?.table
+      if (data) {
+        const dataKeys = ['metadata']
+        dataKeys.forEach(dataKey => {
+          if (data[dataKey] && Object.keys(data[dataKey].length > 2)) {
+            const keys = Object.keys(data[dataKey])
+            const newData = {}
+            for (let i = 2; i > 0; i--) {
+              newData[keys[keys.length - i]] = data[dataKey][keys[keys.length - i]]
+            }
+            data[dataKey] = newData
+          }
+        })
+      }
+      data = method.requestBody?.content?.['application/json']?.examples?.['example-1']?.value
+      if (data) {
+        const dataKeys = ['variables', 'index']
+        dataKeys.forEach(dataKey => {
+          if (data[dataKey] && Object.keys(data[dataKey].length > 3)) {
+            const keys = Object.keys(data[dataKey])
+            const newData = {}
+            for (let i = 3; i > 0; i--) {
+              newData[keys[keys.length - i]] = data[dataKey][keys[keys.length - i]]
+            }
+            data[dataKey] = newData
+          }
+        })
+      }
+      data = method.requestBody?.content?.['application/json']?.examples?.['example-1']?.value?.body?.preferences
+      if (data) {
+        const dataKeys = ['openedDecks']
+        dataKeys.forEach(dataKey => {
+          if (data[dataKey] && Object.keys(data[dataKey].length > 2)) {
+            const keys = Object.keys(data[dataKey])
+            const newData = {}
+            for (let i = 2; i > 0; i--) {
+              newData[keys[keys.length - i]] = data[dataKey][keys[keys.length - i]]
+            }
+            data[dataKey] = newData
+          }
+        })
+      }
+
+      // look at responses
+      for (const status in method.responses) {
+        const data = method.responses?.[status]?.content?.['application/json']?.examples?.['example-1']?.value
+        if (data) {
+          // if index.length > 2 then remove all but last 2 entries
+          const dataKeys = ['metadata', 'index', 'graph']
+          dataKeys.forEach(dataKey => {
+            if (data[dataKey] && Object.keys(data[dataKey].length > 2)) {
+              const keys = Object.keys(data[dataKey])
+              const newData = {}
+              for (let i = 2; i > 0; i--) {
+                newData[keys[keys.length - i]] = data[dataKey][keys[keys.length - i]]
+              }
+              data[dataKey] = newData
+            }
+          })
+        }
+      }
+    })
+  })
 }
 */
 
