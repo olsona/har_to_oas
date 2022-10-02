@@ -1,6 +1,6 @@
 I've used this tool a bit at work, and had some ideas for features I wanted to see, so here we are!
 
-I'm largely a backend engineer, so this might be an interesting way to get back up to speed (a bit) with JS/TS. I changed the structure a little bit to be clearer to me by putting TS files in `ts_src` and then transforming them into JS files in the `js_src` folder. I'm sure this is not the recommended thing to do, but I'm doing many things that aren't recommended and then trying to clean up afterwards. ¯\_(ツ)_/¯
+I'm largely a backend engineer, so this might be an interesting way to get back up to speed (a bit) with JS/TS. I changed the structure a little bit to be clearer to me by putting TS files in `ts_src` and then transforming them into JS files in the `js_src` folder. I'm sure this is not the recommended thing to do, but I'm doing many things that aren't recommended and then trying to clean up afterwards. ¯\\\_(ツ)_/¯
 
 If you update anything in `ts_src`, make sure to transform like so: `tsc ts_src/* --outDir js_src/`
 
