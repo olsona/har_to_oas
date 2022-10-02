@@ -1,7 +1,7 @@
 import { createEmptyApiSpec, OpenApiSpec, OperationObject } from '@loopback/openapi-v3-types'
 import * as merge from 'deepmerge'
 import { readFileSync, writeFileSync } from 'fs'
-import { Har } from 'har-format'
+import { Content, Har } from 'har-format'
 import * as YAML from 'js-yaml'
 import * as parseJson from 'parse-json'
 import * as pluralize from 'pluralize'
@@ -12,49 +12,8 @@ import * as deref from 'json-schema-deref-sync'
 import * as toOpenApiSchema from '@openapi-contrib/json-schema-to-openapi-schema'
 import * as recursive from 'recursive-readdir'
 import * as _ from 'lodash'
-import { JSONInput } from 'quicktype/dist/quicktype-core'
-
-interface ExampleFile {
-  [path: string]: {
-    [method: string]: {
-      request: {
-        [exampleName: string]: any
-      }
-      response: {
-        [statusCode: string]: {
-          [exampleName: string]: any
-        }
-      }
-    }
-  }
-}
-
-interface SchemaFile {
-  [path: string]: {
-    [method: string]: {
-      request: any
-      response: {
-        [statusCode: string]: any
-      }
-    }
-  }
-}
-
-interface Config {
-  apiBasePath: string
-  pathReplace: {
-    [search: string]: string
-  }
-  replace: {
-    [search: string]: string
-  }
-  tags: string[][]
-}
-
-const pad = (m: number, width: number, z = '0'): string => {
-  const n = m.toString()
-  return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n
-}
+import { pad, capitalize, replaceValuesInPlace } from './util'
+import { ExampleFile, Config } from './interfaces'
 
 async function quicktypeJSON (targetLanguage: string, typeName: string, sampleArray: any[]): Promise<{ properties?: { element?: any } }> {
   const jsonInput = jsonInputForTargetLanguage(targetLanguage)
@@ -136,6 +95,7 @@ const addPath = (filteredUrl: string, spec: OpenApiSpec): void => {
     parameters
   }
 }
+
 const addQueryStringParams = (specMethod, harParams: any[]): void => {
   const methodQueryParameters: any[] = []
   specMethod.parameters.forEach(param => {
@@ -228,11 +188,6 @@ const addResponse = (status: number, method: string, specPath: OperationObject):
   }
 }
 
-const capitalize = (s: string): string => {
-  if (typeof s !== 'string') return ''
-  return s.charAt(0).toUpperCase() + s.slice(1)
-}
-
 const createXcodeSamples = (spec: OpenApiSpec): void => {
   Object.keys(spec.paths).forEach(path => {
     Object.keys(spec.paths[path]).forEach(lMethod => {
@@ -279,7 +234,7 @@ const createXcodeSamples = (spec: OpenApiSpec): void => {
       const examples = method.requestBody?.content?.['application/json']?.examples
       if (examples) {
         const exampleList = Object.keys(examples)
-        if (exampleList.length) {
+        if (exampleList.length > 0) {
           const firstExample = exampleList[0]
           data = method.requestBody?.content?.['application/json']?.examples?.[firstExample]?.value
         }
@@ -315,7 +270,7 @@ const createXcodeSamples = (spec: OpenApiSpec): void => {
         .map(
           (part: string, index: number) => index ? capitalize(part) : part
         ).join('').trim()
-      let jsCode: any[] = []
+      let jsCode: string[] = []
 
       // turn query string into search params
       let urlVar = ''
@@ -653,7 +608,7 @@ const mergeRequestExample = (specMethod: OperationObject, postData: any): void =
 const mergeResponseExample = (
   specMethod: OperationObject,
   statusString: string,
-  content,
+  content: Content,
   method: string,
   filteredUrl: string
 ): void => {

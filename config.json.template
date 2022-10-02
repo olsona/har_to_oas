@@ -7,6 +7,9 @@
   "replace": {
     "secret": ""
   },
+  "valueReplace": [
+    "password": "swordfish"
+  ],
   "tags": [
     ["slides"],
     ["progress", "Task Progress"]

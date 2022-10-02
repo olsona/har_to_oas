@@ -29,7 +29,7 @@ if (argv.length < 3) {
       // grab config file
       let config: Config
       try {
-        config = require('./config.json')
+        config = require('../config.json')
       } catch {
         console.log('File config.json not found. Please copy config.json.template to config.json')
         exit(0)
