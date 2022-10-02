@@ -23,7 +23,7 @@ There are many other ways to generate HAR files so go crazy. Google is your frie
 ## Step 2 - Generate request/response examples
 Start by copying `config.json.template` to `config.json`. Once you have a valid config.json file, run
 ``` bash
-node index.js examples outputFilename.json inputHarFile1.json inputHarFile2.json inputHarFile3.json...
+node js_src/index.js examples outputFilename.json inputHarFile1.json inputHarFile2.json inputHarFile3.json...
 ```
 
 This command consumes one or more HAR files and outputs an OAS file. A few additional files are created for your convenience:
@@ -93,7 +93,7 @@ edit the generated OAS file directly.
 After you have manually edited your OAS file, you can generate json schemas for all request and response examples and generate 
 x-code-samples by running
 ```bash
-node index.js schema output/generated.json output/withSchema.json
+node js_src/index.js schema output/generated.json output/withSchema.json
 ```
 This command consumes the (presumably edited) generated.json OAS file and outputs a new OAS file containing json schemas and x-code-samples. 
 It also creates an additional file for your convenience:
@@ -109,7 +109,7 @@ When this happens, you'll want to generate a new OAS file and then carefully mer
 damaging the edits you have carefully made. To do this, run
 
 ```bash
-node index.js merge input/master.json output/withSchema.json output/openapi-spec.json
+node js_src/index.js merge input/master.json output/withSchema.json output/openapi-spec.json
 ```
 This command consumes the generated withSchema.json OAS file with your master.json file and outputs a new OAS file with them merged. New methods/operations found
 in withSchema.json will be added to master.json but nothing in master.json will be replaced. 

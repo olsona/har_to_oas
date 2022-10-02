@@ -32,12 +32,24 @@ interface Config {
   replace: {
     [search: string]: any
   }
-  valueReplace: string[][]
+  valueReplace: ObjectPathRule[]
   tags: string[][]
+}
+
+interface RegexRule {
+  regex: string
+  replacement: string
+}
+
+interface ObjectPathRule {
+  path: string | string[]
+  replacement: any
 }
 
 export {
   ExampleFile,
   SchemaFile,
-  Config
+  Config,
+  RegexRule,
+  ObjectPathRule
 }

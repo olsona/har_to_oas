@@ -12,7 +12,7 @@ import * as deref from 'json-schema-deref-sync'
 import * as toOpenApiSchema from '@openapi-contrib/json-schema-to-openapi-schema'
 import * as recursive from 'recursive-readdir'
 import * as _ from 'lodash'
-import { pad, capitalize, replaceValuesInPlace, replaceApos } from './util'
+import { pad, capitalize, replaceValuesInPlace, replaceApos, xCodeScrubRules } from './util'
 import { ExampleFile, Config } from './interfaces'
 
 async function quicktypeJSON (targetLanguage: string, typeName: string, sampleArray: any[]): Promise<{ properties?: { element?: any } }> {
@@ -193,36 +193,10 @@ const createXcodeSamples = (spec: OpenApiSpec): void => {
     Object.keys(spec.paths[path]).forEach(lMethod => {
       if (lMethod === 'parameters') return
       const method = spec.paths[path][lMethod]
-      const scrubbedPath = path
-        .replace(/{dataset_id}/g, '0001a')
-        .replace(/{variable_id}/g, '0001b')
-        .replace(/{user_id}/g, '0001c')
-        .replace(/{subvariable_id}/g, '0001d')
-        .replace(/{folder_id}/g, '0001e')
-        .replace(/{slide_id}/g, '0001f')
-        .replace(/{deck_id}/g, '0001g')
-        .replace(/{analysis_id}/g, '0001h')
-        .replace(/{tag_name}/g, '0001i')
-        .replace(/{project_id}/g, '0001j')
-        .replace(/{integration_id}/g, '0001k')
-        .replace(/{integration_partner}/g, '0001l')
-        .replace(/{team_id}/g, '0001m')
-        .replace(/{savepoint_id}/g, '0001n')
-        .replace(/{script_id}/g, '0001o')
-        .replace(/{multitable_id}/g, '0001p')
-        .replace(/{subdomain}/g, '0001q')
-        .replace(/{account_id}/g, '0001r')
-        .replace(/{filter_id}/g, '0001s')
-        .replace(/{geodata_id}/g, '0001t')
-        .replace(/{task_id}/g, '0001u')
-        .replace(/{flag_id}/g, '0001v')
-        .replace(/{source_id}/g, '0001w')
-        .replace(/{batch_id}/g, '0001x')
-        .replace(/{action_hash}/g, '0001y')
-        .replace(/{boxdata_id}/g, '0001z')
-        .replace(/{datasetName}/g, '0001aa')
-        .replace(/{format}/g, '0001ab')
-        .replace(/{dashboard_id}/g, '0001ac')
+      let scrubbedPath: string
+      xCodeScrubRules.forEach(rule => {
+        scrubbedPath = path.replace(rule.regex, rule.replacement)
+      })
 
       method['x-code-samples'] = method['x-code-samples'] ?? []
 
@@ -512,7 +486,7 @@ const generateSpec = (inputFilenames: string[], outputFilename: string, config: 
   const har = merge.all(inputHars) as Har
   console.log(`Network requests found in har file(s): ${har.log.entries.length}`)
 
-  // loop through har entries
+  // Loop through HAR entries and get spec
   const spec = createEmptyApiSpec()
   const methodList: string[] = []
   har.log.entries.sort().forEach(item => {

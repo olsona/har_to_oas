@@ -225,36 +225,10 @@ var createXcodeSamples = function (spec) {
             if (lMethod === 'parameters')
                 return;
             var method = spec.paths[path][lMethod];
-            var scrubbedPath = path
-                .replace(/{dataset_id}/g, '0001a')
-                .replace(/{variable_id}/g, '0001b')
-                .replace(/{user_id}/g, '0001c')
-                .replace(/{subvariable_id}/g, '0001d')
-                .replace(/{folder_id}/g, '0001e')
-                .replace(/{slide_id}/g, '0001f')
-                .replace(/{deck_id}/g, '0001g')
-                .replace(/{analysis_id}/g, '0001h')
-                .replace(/{tag_name}/g, '0001i')
-                .replace(/{project_id}/g, '0001j')
-                .replace(/{integration_id}/g, '0001k')
-                .replace(/{integration_partner}/g, '0001l')
-                .replace(/{team_id}/g, '0001m')
-                .replace(/{savepoint_id}/g, '0001n')
-                .replace(/{script_id}/g, '0001o')
-                .replace(/{multitable_id}/g, '0001p')
-                .replace(/{subdomain}/g, '0001q')
-                .replace(/{account_id}/g, '0001r')
-                .replace(/{filter_id}/g, '0001s')
-                .replace(/{geodata_id}/g, '0001t')
-                .replace(/{task_id}/g, '0001u')
-                .replace(/{flag_id}/g, '0001v')
-                .replace(/{source_id}/g, '0001w')
-                .replace(/{batch_id}/g, '0001x')
-                .replace(/{action_hash}/g, '0001y')
-                .replace(/{boxdata_id}/g, '0001z')
-                .replace(/{datasetName}/g, '0001aa')
-                .replace(/{format}/g, '0001ab')
-                .replace(/{dashboard_id}/g, '0001ac');
+            var scrubbedPath;
+            util_1.xCodeScrubRules.forEach(function (rule) {
+                scrubbedPath = path.replace(rule.regex, rule.replacement);
+            });
             method['x-code-samples'] = (_a = method['x-code-samples']) !== null && _a !== void 0 ? _a : [];
             // create curl code
             var data;
@@ -498,7 +472,7 @@ var writeSpecToFiles = function (spec, methodList, outputFilename) {
     (0, fs_1.writeFileSync)(outputFilename, JSON.stringify(spec, null, 2));
     (0, fs_1.writeFileSync)(outputFilename + '.yaml', YAML.dump(spec));
     writeExamples(spec);
-    // write urlList to debug
+    // write path list to debug
     (0, fs_1.writeFileSync)('output/pathList.txt', Object.keys(spec.paths).join('\n'));
     // write method list to debug
     (0, fs_1.writeFileSync)('output/methodList.txt', methodList.sort().join('\n'));
@@ -508,7 +482,7 @@ var generateSpec = function (inputFilenames, outputFilename, config) {
     var inputHars = inputFilenames.map(function (filename) { return parseHarFile(filename); });
     var har = merge.all(inputHars);
     console.log("Network requests found in har file(s): ".concat(har.log.entries.length));
-    // loop through har entries
+    // Loop through HAR entries and get spec
     var spec = (0, openapi_v3_types_1.createEmptyApiSpec)();
     var methodList = [];
     har.log.entries.sort().forEach(function (item) {
