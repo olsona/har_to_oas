@@ -2,27 +2,27 @@ import * as jsonPath from 'jsonPath'
 import * as _ from 'lodash'
 import { Config } from './lib'
 
-const pad = (m: number, width: number, z = '0'): string => {
+function pad (m: number, width: number, z = '0'): string {
   const n = m.toString()
   return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n
 }
 
-const capitalize = (s: string): string => {
+function capitalize (s: string): string {
   if (typeof s !== 'string') return ''
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
-const replaceApos = (s: string): string => s // rapidoc now supports single quote
+function replaceApos (s: string): string { return s } // rapidoc now supports single quote
 // const replaceApos = (s: string): string => s{regex: '/'/g', "&apos;")
 
-const constructJsonPath = (partialPath: string | string[]): string => {
+function constructJsonPath (partialPath: string | string[]): string {
   if (_.isString(partialPath)) {
     return '$..' + partialPath
   }
   return '$..' + partialPath.join('..')
 }
 
-const replaceValuesInPlace = (object: object, config: Config): void => {
+function replaceValuesInPlace (object: object, config: Config): void {
   config.valueReplace.forEach(rule => {
     const partialPath = rule.path
     const replacement = rule.replacement
@@ -33,9 +33,12 @@ const replaceValuesInPlace = (object: object, config: Config): void => {
   })
 }
 
+function overwriteMerge (destinationArray: any[], sourceArray: any[]): any[] { return sourceArray }
+
 export {
   pad,
   capitalize,
   replaceValuesInPlace,
-  replaceApos
+  replaceApos,
+  overwriteMerge
 }

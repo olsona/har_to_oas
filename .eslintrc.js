@@ -18,7 +18,7 @@ module.exports = {
       },
       rules: {
         '@typescript-eslint/require-array-sort-compare': 0,
-        '@typescript-eslint/strict-boolean-expressions': 1,
+        '@typescript-eslint/strict-boolean-expressions': 0,
         '@typescript-eslint/restrict-template-expressions': 1
       }
     }

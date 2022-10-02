@@ -82,7 +82,7 @@ function quicktypeJSON(targetLanguage, typeName, sampleArray) {
         });
     });
 }
-var addMethod = function (method, filteredUrl, originalPath, methodList, spec, config) {
+function addMethod(method, filteredUrl, originalPath, methodList, spec, config) {
     // generate operation id
     var operationId = filteredUrl.replace(/(^\/|\/$|{|})/g, '').replace(/\//g, '-');
     operationId = "".concat(method, "-").concat(operationId);
@@ -102,8 +102,8 @@ var addMethod = function (method, filteredUrl, originalPath, methodList, spec, c
         }
     };
     methodList.push("".concat(tag, "\t").concat(filteredUrl, "\t").concat(method, "\t").concat(summary));
-};
-var addPath = function (filteredUrl, spec) {
+}
+function addPath(filteredUrl, spec) {
     // identify what parameters this path has
     var parameters = [];
     var parameterList = filteredUrl.match(/{.*?}/g);
@@ -126,8 +126,8 @@ var addPath = function (filteredUrl, spec) {
     spec.paths[filteredUrl] = {
         parameters: parameters
     };
-};
-var addQueryStringParams = function (specMethod, harParams) {
+}
+function addQueryStringParams(specMethod, harParams) {
     var methodQueryParameters = [];
     specMethod.parameters.forEach(function (param) {
         if (param["in"] === 'query')
@@ -148,8 +148,8 @@ var addQueryStringParams = function (specMethod, harParams) {
             });
         }
     });
-};
-var addResponse = function (status, method, specPath) {
+}
+function addResponse(status, method, specPath) {
     switch (status) {
         case 200:
             switch (method) {
@@ -217,8 +217,8 @@ var addResponse = function (status, method, specPath) {
             specPath.responses['405'] = { description: 'Not allowed' };
             break;
     }
-};
-var createXcodeSamples = function (spec, config) {
+}
+function createXcodeSamples(spec, config) {
     Object.keys(spec.paths).forEach(function (path) {
         Object.keys(spec.paths[path]).forEach(function (lMethod) {
             var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y;
@@ -339,8 +339,8 @@ var createXcodeSamples = function (spec, config) {
             // method['x-code-samples'] = samples
         });
     });
-};
-var deriveSummary = function (method, path) {
+}
+function deriveSummary(method, path) {
     var pathParts = path.split('/');
     var lastParam = pathParts.length > 1 ? pathParts[pathParts.length - 2] : '';
     var lastLastParam = pathParts.length > 3 ? pathParts[pathParts.length - 4] : '';
@@ -376,16 +376,16 @@ var deriveSummary = function (method, path) {
             return "Delete ".concat(pluralize(lastLastParam, 1)).concat(lastLastParam ? ' ' : '').concat(pluralize(lastParam));
     }
     return 'SUMMARY';
-};
-var deriveTag = function (path, config) {
+}
+function deriveTag(path, config) {
     for (var _i = 0, _a = config.tags; _i < _a.length; _i++) {
         var item = _a[_i];
         if (path.includes(item[0]))
             return item.length > 1 ? item[1] : (0, util_1.capitalize)(item[0]);
     }
     return 'Miscellaneous';
-};
-var filterUrl = function (config, inputUrl) {
+}
+function filterUrl(config, inputUrl) {
     var filteredUrl = inputUrl;
     // filteredUrl = filteredUrl.replace(/by_name\/.*\//, 'by_name/{dataset-name}/')
     for (var key in config.pathReplace) {
@@ -393,8 +393,8 @@ var filterUrl = function (config, inputUrl) {
         filteredUrl = filteredUrl.replace(re, config.pathReplace[key]);
     }
     return filteredUrl;
-};
-var generateSamples = function (spec, outputFilename, config) {
+}
+function generateSamples(spec, outputFilename, config) {
     // createJsonSchemas(spec)
     createXcodeSamples(spec, config);
     // perform the final strip where we take out things we don't want to see in final spec
@@ -410,19 +410,26 @@ var generateSamples = function (spec, outputFilename, config) {
     (0, fs_1.writeFileSync)(outputFilename, JSON.stringify(stripedSpec, null, 2));
     (0, fs_1.writeFileSync)(outputFilename + '.yaml', YAML.dump(stripedSpec));
     console.log("".concat(outputFilename, " created"));
-};
+}
 exports.generateSamples = generateSamples;
-var harEntryToSpec = function (item, spec, methodList, config) {
+function shouldIncludeEntry(item, apiBasePath) {
     var _a, _b, _c;
-    // only care about urls that match target api
-    if (!item.request.url.includes(config.apiBasePath)) {
+    if (item.request.url.includes(apiBasePath)) {
+        return true;
+    }
+    else {
         // requests to superadmin will not have url in path
         // I also check instead for html vs json response
         if (item.request.url.includes('api') || ((_c = (_b = (_a = item.response) === null || _a === void 0 ? void 0 : _a.content) === null || _b === void 0 ? void 0 : _b.mimeType) === null || _c === void 0 ? void 0 : _c.includes('application/json'))) {
             console.log('apiBasePath mismatch', item.request.url);
+            return false;
         }
-        return;
+        return true;
     }
+}
+function harEntryToSpec(item, spec, methodList, config) {
+    if (!shouldIncludeEntry(item, config.apiBasePath))
+        return;
     // filter and collapse path urls
     var filteredUrl = filterUrl(config, item.request.url);
     // continue if url is blank
@@ -433,15 +440,12 @@ var harEntryToSpec = function (item, spec, methodList, config) {
         addPath(filteredUrl, spec);
     // create method
     var method = item.request.method.toLowerCase();
-    if (!spec.paths[filteredUrl][method])
+    if (!spec.paths[filteredUrl][method]) {
         addMethod(method, filteredUrl, item.request.url, methodList, spec, config);
+    }
     var specMethod = spec.paths[filteredUrl][method];
     // set original path to last request received
     specMethod.meta.originalPath = item.request.url;
-    // console.log(filteredUrl, method)
-    // if (method === 'post' && filteredUrl === '/account/users/') {
-    //     console.log('hello')
-    // }
     // generate response
     addResponse(item.response.status, method, specMethod);
     // add query string parameters
@@ -454,8 +458,8 @@ var harEntryToSpec = function (item, spec, methodList, config) {
     if (item.response.bodySize > 0) {
         mergeResponseExample(specMethod, item.response.status.toString(), item.response.content, method, filteredUrl);
     }
-};
-var normalizeSpec = function (spec, config) {
+}
+function normalizeSpec(spec, config) {
     // sort paths
     spec.paths = sortJson(spec.paths, { depth: 200 });
     // global replace
@@ -467,8 +471,8 @@ var normalizeSpec = function (spec, config) {
     var outputSpec = parseJson(specString);
     (0, util_1.replaceValuesInPlace)(outputSpec, config);
     return outputSpec;
-};
-var writeSpecToFiles = function (spec, methodList, outputFilename) {
+}
+function writeSpecToFiles(spec, methodList, outputFilename) {
     (0, fs_1.writeFileSync)(outputFilename, JSON.stringify(spec, null, 2));
     (0, fs_1.writeFileSync)(outputFilename + '.yaml', YAML.dump(spec));
     writeExamples(spec);
@@ -476,8 +480,8 @@ var writeSpecToFiles = function (spec, methodList, outputFilename) {
     (0, fs_1.writeFileSync)('output/pathList.txt', Object.keys(spec.paths).join('\n'));
     // write method list to debug
     (0, fs_1.writeFileSync)('output/methodList.txt', methodList.sort().join('\n'));
-};
-var generateSpec = function (inputFilenames, outputFilename, config) {
+}
+function generateSpec(inputFilenames, outputFilename, config) {
     // load input files into memory
     var inputHars = inputFilenames.map(function (filename) { return parseHarFile(filename); });
     var har = merge.all(inputHars);
@@ -494,9 +498,9 @@ var generateSpec = function (inputFilenames, outputFilename, config) {
     writeSpecToFiles(outputSpec, methodList, outputFilename);
     console.log('Paths created:', Object.keys(outputSpec.paths).length);
     console.log('Operations created:', methodList.length);
-};
+}
 exports.generateSpec = generateSpec;
-var mergeFiles = function (masterFilename, toMergeFilename, outputFilename) {
+function mergeFiles(masterFilename, toMergeFilename, outputFilename) {
     // load input file into memory
     var master = parseJsonFile(masterFilename);
     var toMerge = parseJsonFile(toMergeFilename);
@@ -516,9 +520,9 @@ var mergeFiles = function (masterFilename, toMergeFilename, outputFilename) {
     (0, fs_1.writeFileSync)(outputFilename, JSON.stringify(master, null, 2));
     (0, fs_1.writeFileSync)(outputFilename + '.yaml', YAML.safeDump(master));
     console.log("".concat(outputFilename, " created"));
-};
+}
 exports.mergeFiles = mergeFiles;
-var mergeRequestExample = function (specMethod, postData) {
+function mergeRequestExample(specMethod, postData) {
     // if (postData.mimeType === null) { // data sent
     if (_.has(postData, 'text')) { // data sent
         try {
@@ -555,7 +559,7 @@ var mergeRequestExample = function (specMethod, postData) {
                     return;
             }
             // merge this object with other objects found
-            examples['example-0001'].value = merge(examples['example-0001'].value, data, { arrayMerge: overwriteMerge });
+            examples['example-0001'].value = merge(examples['example-0001'].value, data, { arrayMerge: util_1.overwriteMerge });
             // also add a new example
             examples["example-".concat((0, util_1.pad)(Object.keys(examples).length + 1, 4))] = {
                 value: data
@@ -584,8 +588,8 @@ var mergeRequestExample = function (specMethod, postData) {
             };
         }
     }
-};
-var mergeResponseExample = function (specMethod, statusString, content, method, filteredUrl) {
+}
+function mergeResponseExample(specMethod, statusString, content, method, filteredUrl) {
     try {
         var data = JSON.parse(content.encoding === 'base64' ? Buffer.from(content.text, 'base64').toString() : content.text);
         // remove data traceback if exists
@@ -617,7 +621,7 @@ var mergeResponseExample = function (specMethod, statusString, content, method, 
                     return;
             }
             // merge current response into other response examples
-            examples['example-0001'].value = merge(examples['example-0001'].value, data, { arrayMerge: overwriteMerge });
+            examples['example-0001'].value = merge(examples['example-0001'].value, data, { arrayMerge: util_1.overwriteMerge });
             // also add a new example
             examples["example-".concat((0, util_1.pad)(Object.keys(examples).length + 1, 4))] = {
                 value: data
@@ -632,9 +636,8 @@ var mergeResponseExample = function (specMethod, statusString, content, method, 
     }
     catch (err) {
     }
-};
-var overwriteMerge = function (destinationArray, sourceArray) { return sourceArray; };
-var parseHarFileIntoIndividualFiles = function (filename) {
+}
+function parseHarFileIntoIndividualFiles(filename) {
     var file = (0, fs_1.readFileSync)("input/".concat(filename), 'utf8');
     try {
         var data_1 = JSON.parse(file);
@@ -655,9 +658,9 @@ var parseHarFileIntoIndividualFiles = function (filename) {
         console.log("".concat(filename, " contains invalid json"));
         (0, process_1.exit)(1);
     }
-};
+}
 exports.parseHarFileIntoIndividualFiles = parseHarFileIntoIndividualFiles;
-var parseHarFile = function (filename) {
+function parseHarFile(filename) {
     var file = (0, fs_1.readFileSync)(filename, 'utf8');
     try {
         var data_2 = JSON.parse(file);
@@ -680,8 +683,8 @@ var parseHarFile = function (filename) {
         console.log("".concat(filename, " contains invalid json"));
         (0, process_1.exit)(1);
     }
-};
-var parseJsonFile = function (filename) {
+}
+function parseJsonFile(filename) {
     var file = (0, fs_1.readFileSync)(filename, 'utf8');
     try {
         return JSON.parse(file);
@@ -690,8 +693,8 @@ var parseJsonFile = function (filename) {
         console.log("".concat(filename, " contains invalid json"));
         (0, process_1.exit)(1);
     }
-};
-var writeExamples = function (spec) {
+}
+function writeExamples(spec) {
     var specExamples = {};
     Object.keys(spec.paths).forEach(function (path) {
         specExamples[path] = {};
@@ -752,8 +755,8 @@ var writeExamples = function (spec) {
     // dump as yaml
     (0, fs_1.writeFileSync)('output/examples.yaml', YAML.dump(sortedExamples));
     (0, fs_1.writeFileSync)('output/examples.json', JSON.stringify(sortedExamples, null, 2));
-};
-var validateExampleList = function (exampleObject, exampleObjectName, exampleFilename) {
+}
+function validateExampleList(exampleObject, exampleObjectName, exampleFilename) {
     var allExamples = [];
     var publishExamplesArray = [];
     for (var exampleName in exampleObject) {
@@ -775,195 +778,197 @@ var validateExampleList = function (exampleObject, exampleObjectName, exampleFil
         publishExamples: publishExamples,
         firstExample: firstExample
     };
-};
-var generateSchema = function (exampleFilename) { return __awaiter(void 0, void 0, void 0, function () {
-    var masterExamples, oldSpec, newSpec, _a, _b, _i, path, _loop_1, _c, _d, _e, method;
-    var _f, _g;
-    return __generator(this, function (_h) {
-        switch (_h.label) {
-            case 0:
-                masterExamples = parseJsonFile(exampleFilename);
-                oldSpec = parseJsonFile('output/examples.spec.json');
-                newSpec = {
-                    openapi: oldSpec.openapi,
-                    info: oldSpec.info,
-                    servers: oldSpec.servers,
-                    paths: {}
-                };
-                _a = [];
-                for (_b in masterExamples)
-                    _a.push(_b);
-                _i = 0;
-                _h.label = 1;
-            case 1:
-                if (!(_i < _a.length)) return [3 /*break*/, 6];
-                path = _a[_i];
-                // start with path object from examples spec
-                if (oldSpec.paths[path]) {
-                    newSpec.paths[path] = oldSpec.paths[path];
-                }
-                else {
-                    newSpec.paths[path] = {};
-                }
-                _loop_1 = function (method) {
-                    var operationId, methodObject, numExamples, _j, allExamples, publishExamples, firstExample, jsonSchema_1, _k, _loop_2, _l, _m, _o, statusCode;
-                    return __generator(this, function (_p) {
-                        switch (_p.label) {
-                            case 0:
-                                // create a spec if none exists. i.e. we added an example where there was no unit test
-                                if (!newSpec.paths[path][method]) {
-                                    operationId = path.replace(/(^\/|\/$|{|})/g, '').replace(/\//g, '-');
-                                    operationId = "".concat(method, "-").concat(operationId);
-                                    newSpec.paths[path][method] = {
-                                        operationId: operationId,
-                                        summary: operationId,
-                                        description: '',
-                                        parameters: [],
-                                        responses: {},
-                                        tags: ['UNKNOWN'],
-                                        meta: {
-                                            originalPath: "https://app.crunch.io/api".concat(path)
-                                        }
-                                    };
-                                }
-                                methodObject = newSpec.paths[path][method];
-                                numExamples = Object.keys(masterExamples[path][method].request).length;
-                                console.log(path, method, 'request', numExamples);
-                                if (!numExamples) return [3 /*break*/, 3];
-                                _j = validateExampleList(masterExamples[path][method].request, "".concat(path, " ").concat(method, " requests"), exampleFilename), allExamples = _j.allExamples, publishExamples = _j.publishExamples, firstExample = _j.firstExample;
-                                return [4 /*yield*/, quicktypeJSON('schema', [path, method, 'request'].join('-'), allExamples)];
-                            case 1:
-                                jsonSchema_1 = _p.sent();
-                                if ((_f = jsonSchema_1.properties) === null || _f === void 0 ? void 0 : _f.element) {
-                                    switch (firstExample.element) {
-                                        case 'shoji:entity':
-                                            jsonSchema_1.properties.element = {
-                                                $ref: '#/components/schemas/Shoji-entity-element'
-                                            };
-                                            break;
-                                        case 'shoji:catalog':
-                                            jsonSchema_1.properties.element = {
-                                                $ref: '#/components/schemas/Shoji-catalog-element'
-                                            };
-                                            break;
-                                        case 'shoji:view':
-                                            jsonSchema_1.properties.element = {
-                                                $ref: '#/components/schemas/Shoji-view-element'
-                                            };
-                                            break;
+}
+function generateSchema(exampleFilename) {
+    var _a, _b;
+    return __awaiter(this, void 0, void 0, function () {
+        var masterExamples, oldSpec, newSpec, _c, _d, _i, path, _loop_1, _e, _f, _g, method;
+        return __generator(this, function (_h) {
+            switch (_h.label) {
+                case 0:
+                    masterExamples = parseJsonFile(exampleFilename);
+                    oldSpec = parseJsonFile('output/examples.spec.json');
+                    newSpec = {
+                        openapi: oldSpec.openapi,
+                        info: oldSpec.info,
+                        servers: oldSpec.servers,
+                        paths: {}
+                    };
+                    _c = [];
+                    for (_d in masterExamples)
+                        _c.push(_d);
+                    _i = 0;
+                    _h.label = 1;
+                case 1:
+                    if (!(_i < _c.length)) return [3 /*break*/, 6];
+                    path = _c[_i];
+                    // start with path object from examples spec
+                    if (oldSpec.paths[path]) {
+                        newSpec.paths[path] = oldSpec.paths[path];
+                    }
+                    else {
+                        newSpec.paths[path] = {};
+                    }
+                    _loop_1 = function (method) {
+                        var operationId, methodObject, numExamples, _j, allExamples, publishExamples, firstExample, jsonSchema_1, _k, _loop_2, _l, _m, _o, statusCode;
+                        return __generator(this, function (_p) {
+                            switch (_p.label) {
+                                case 0:
+                                    // create a spec if none exists. i.e. we added an example where there was no unit test
+                                    if (!newSpec.paths[path][method]) {
+                                        operationId = path.replace(/(^\/|\/$|{|})/g, '').replace(/\//g, '-');
+                                        operationId = "".concat(method, "-").concat(operationId);
+                                        newSpec.paths[path][method] = {
+                                            operationId: operationId,
+                                            summary: operationId,
+                                            description: '',
+                                            parameters: [],
+                                            responses: {},
+                                            tags: ['UNKNOWN'],
+                                            meta: {
+                                                originalPath: "https://app.crunch.io/api".concat(path)
+                                            }
+                                        };
                                     }
-                                }
-                                if (!methodObject.requestBody) {
-                                    methodObject.requestBody = {
-                                        content: {
-                                            'application/json': {}
+                                    methodObject = newSpec.paths[path][method];
+                                    numExamples = Object.keys(masterExamples[path][method].request).length;
+                                    console.log(path, method, 'request', numExamples);
+                                    if (!numExamples) return [3 /*break*/, 3];
+                                    _j = validateExampleList(masterExamples[path][method].request, "".concat(path, " ").concat(method, " requests"), exampleFilename), allExamples = _j.allExamples, publishExamples = _j.publishExamples, firstExample = _j.firstExample;
+                                    return [4 /*yield*/, quicktypeJSON('schema', [path, method, 'request'].join('-'), allExamples)];
+                                case 1:
+                                    jsonSchema_1 = _p.sent();
+                                    if ((_a = jsonSchema_1.properties) === null || _a === void 0 ? void 0 : _a.element) {
+                                        switch (firstExample.element) {
+                                            case 'shoji:entity':
+                                                jsonSchema_1.properties.element = {
+                                                    $ref: '#/components/schemas/Shoji-entity-element'
+                                                };
+                                                break;
+                                            case 'shoji:catalog':
+                                                jsonSchema_1.properties.element = {
+                                                    $ref: '#/components/schemas/Shoji-catalog-element'
+                                                };
+                                                break;
+                                            case 'shoji:view':
+                                                jsonSchema_1.properties.element = {
+                                                    $ref: '#/components/schemas/Shoji-view-element'
+                                                };
+                                                break;
                                         }
-                                    };
-                                }
-                                _k = methodObject.requestBody.content['application/json'];
-                                return [4 /*yield*/, toOpenApiSchema(jsonSchema_1)["catch"](function (err) {
-                                        console.log('ERROR CONVERTING TO OPENAPI SCHEMA, USING JSON SCHEMA');
-                                        methodObject.requestBody.content['application/json'].schema = jsonSchema_1;
-                                    })];
-                            case 2:
-                                _k.schema = _p.sent();
-                                methodObject.requestBody.content['application/json'].examples = publishExamples;
-                                _p.label = 3;
-                            case 3:
-                                _loop_2 = function (statusCode) {
-                                    var numExamples_1, exampleStats, jsonSchema_2, _q;
-                                    return __generator(this, function (_r) {
-                                        switch (_r.label) {
-                                            case 0:
-                                                numExamples_1 = Object.keys(masterExamples[path][method].response[statusCode]).length;
-                                                console.log(path, method, statusCode, numExamples_1);
-                                                if (!numExamples_1) return [3 /*break*/, 3];
-                                                exampleStats = validateExampleList(masterExamples[path][method].response[statusCode], "".concat(path, " ").concat(method, " requests"), exampleFilename);
-                                                return [4 /*yield*/, quicktypeJSON('schema', [path, method, 'request'].join('-'), exampleStats.allExamples)];
-                                            case 1:
-                                                jsonSchema_2 = _r.sent();
-                                                if ((_g = jsonSchema_2.properties) === null || _g === void 0 ? void 0 : _g.element) {
-                                                    switch (exampleStats.firstExample.element) {
-                                                        case 'shoji:entity':
-                                                            jsonSchema_2.properties.element = {
-                                                                $ref: '#/components/schemas/Shoji-entity-element'
-                                                            };
-                                                            break;
-                                                        case 'shoji:catalog':
-                                                            jsonSchema_2.properties.element = {
-                                                                $ref: '#/components/schemas/Shoji-catalog-element'
-                                                            };
-                                                            break;
-                                                        case 'shoji:view':
-                                                            jsonSchema_2.properties.element = {
-                                                                $ref: '#/components/schemas/Shoji-view-element'
-                                                            };
-                                                            break;
-                                                    }
-                                                }
-                                                if (!methodObject.responses[statusCode]) {
-                                                    methodObject.responses[statusCode] = {
-                                                        content: {
-                                                            'application/json': {}
+                                    }
+                                    if (!methodObject.requestBody) {
+                                        methodObject.requestBody = {
+                                            content: {
+                                                'application/json': {}
+                                            }
+                                        };
+                                    }
+                                    _k = methodObject.requestBody.content['application/json'];
+                                    return [4 /*yield*/, toOpenApiSchema(jsonSchema_1)["catch"](function (err) {
+                                            console.log('ERROR CONVERTING TO OPENAPI SCHEMA, USING JSON SCHEMA');
+                                            methodObject.requestBody.content['application/json'].schema = jsonSchema_1;
+                                        })];
+                                case 2:
+                                    _k.schema = _p.sent();
+                                    methodObject.requestBody.content['application/json'].examples = publishExamples;
+                                    _p.label = 3;
+                                case 3:
+                                    _loop_2 = function (statusCode) {
+                                        var numExamples_1, exampleStats, jsonSchema_2, _q;
+                                        return __generator(this, function (_r) {
+                                            switch (_r.label) {
+                                                case 0:
+                                                    numExamples_1 = Object.keys(masterExamples[path][method].response[statusCode]).length;
+                                                    console.log(path, method, statusCode, numExamples_1);
+                                                    if (!numExamples_1) return [3 /*break*/, 3];
+                                                    exampleStats = validateExampleList(masterExamples[path][method].response[statusCode], "".concat(path, " ").concat(method, " requests"), exampleFilename);
+                                                    return [4 /*yield*/, quicktypeJSON('schema', [path, method, 'request'].join('-'), exampleStats.allExamples)];
+                                                case 1:
+                                                    jsonSchema_2 = _r.sent();
+                                                    if ((_b = jsonSchema_2.properties) === null || _b === void 0 ? void 0 : _b.element) {
+                                                        switch (exampleStats.firstExample.element) {
+                                                            case 'shoji:entity':
+                                                                jsonSchema_2.properties.element = {
+                                                                    $ref: '#/components/schemas/Shoji-entity-element'
+                                                                };
+                                                                break;
+                                                            case 'shoji:catalog':
+                                                                jsonSchema_2.properties.element = {
+                                                                    $ref: '#/components/schemas/Shoji-catalog-element'
+                                                                };
+                                                                break;
+                                                            case 'shoji:view':
+                                                                jsonSchema_2.properties.element = {
+                                                                    $ref: '#/components/schemas/Shoji-view-element'
+                                                                };
+                                                                break;
                                                         }
-                                                    };
-                                                }
-                                                _q = methodObject.responses[statusCode].content['application/json'];
-                                                return [4 /*yield*/, toOpenApiSchema(jsonSchema_2)["catch"](function (err) {
-                                                        console.log('ERROR CONVERTING TO OPENAPI SCHEMA, USING JSON SCHEMA');
-                                                        methodObject.responses[statusCode].content['application/json'].schema = jsonSchema_2;
-                                                    })];
-                                            case 2:
-                                                _q.schema = _r.sent();
-                                                methodObject.responses[statusCode].content['application/json'].examples = exampleStats.publishExamples;
-                                                _r.label = 3;
-                                            case 3: return [2 /*return*/];
-                                        }
-                                    });
-                                };
-                                _l = [];
-                                for (_m in masterExamples[path][method].response)
-                                    _l.push(_m);
-                                _o = 0;
-                                _p.label = 4;
-                            case 4:
-                                if (!(_o < _l.length)) return [3 /*break*/, 7];
-                                statusCode = _l[_o];
-                                return [5 /*yield**/, _loop_2(statusCode)];
-                            case 5:
-                                _p.sent();
-                                _p.label = 6;
-                            case 6:
-                                _o++;
-                                return [3 /*break*/, 4];
-                            case 7: return [2 /*return*/];
-                        }
-                    });
-                };
-                _c = [];
-                for (_d in masterExamples[path])
-                    _c.push(_d);
-                _e = 0;
-                _h.label = 2;
-            case 2:
-                if (!(_e < _c.length)) return [3 /*break*/, 5];
-                method = _c[_e];
-                return [5 /*yield**/, _loop_1(method)];
-            case 3:
-                _h.sent();
-                _h.label = 4;
-            case 4:
-                _e++;
-                return [3 /*break*/, 2];
-            case 5:
-                _i++;
-                return [3 /*break*/, 1];
-            case 6: return [2 /*return*/, newSpec];
-        }
+                                                    }
+                                                    if (!methodObject.responses[statusCode]) {
+                                                        methodObject.responses[statusCode] = {
+                                                            content: {
+                                                                'application/json': {}
+                                                            }
+                                                        };
+                                                    }
+                                                    _q = methodObject.responses[statusCode].content['application/json'];
+                                                    return [4 /*yield*/, toOpenApiSchema(jsonSchema_2)["catch"](function (err) {
+                                                            console.log('ERROR CONVERTING TO OPENAPI SCHEMA, USING JSON SCHEMA');
+                                                            methodObject.responses[statusCode].content['application/json'].schema = jsonSchema_2;
+                                                        })];
+                                                case 2:
+                                                    _q.schema = _r.sent();
+                                                    methodObject.responses[statusCode].content['application/json'].examples = exampleStats.publishExamples;
+                                                    _r.label = 3;
+                                                case 3: return [2 /*return*/];
+                                            }
+                                        });
+                                    };
+                                    _l = [];
+                                    for (_m in masterExamples[path][method].response)
+                                        _l.push(_m);
+                                    _o = 0;
+                                    _p.label = 4;
+                                case 4:
+                                    if (!(_o < _l.length)) return [3 /*break*/, 7];
+                                    statusCode = _l[_o];
+                                    return [5 /*yield**/, _loop_2(statusCode)];
+                                case 5:
+                                    _p.sent();
+                                    _p.label = 6;
+                                case 6:
+                                    _o++;
+                                    return [3 /*break*/, 4];
+                                case 7: return [2 /*return*/];
+                            }
+                        });
+                    };
+                    _e = [];
+                    for (_f in masterExamples[path])
+                        _e.push(_f);
+                    _g = 0;
+                    _h.label = 2;
+                case 2:
+                    if (!(_g < _e.length)) return [3 /*break*/, 5];
+                    method = _e[_g];
+                    return [5 /*yield**/, _loop_1(method)];
+                case 3:
+                    _h.sent();
+                    _h.label = 4;
+                case 4:
+                    _g++;
+                    return [3 /*break*/, 2];
+                case 5:
+                    _i++;
+                    return [3 /*break*/, 1];
+                case 6: return [2 /*return*/, newSpec];
+            }
+        });
     });
-}); };
+}
 exports.generateSchema = generateSchema;
-var updateXcode = function (filename, config) {
+function updateXcode(filename, config) {
     console.log(filename);
     // input file yaml to json object
     var file = YAML.safeLoad((0, fs_1.readFileSync)(filename));
@@ -971,9 +976,9 @@ var updateXcode = function (filename, config) {
     createXcodeSamples(file, config);
     // write file back to orig yaml
     (0, fs_1.writeFileSync)(filename, YAML.safeDump(file));
-};
+}
 exports.updateXcode = updateXcode;
-var QAPaths = function (spec) {
+function QAPaths(spec) {
     Object.keys(spec.paths).forEach(function (path) {
         Object.keys(spec.paths[path]).forEach(function (lMethod) {
             var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s;
@@ -1063,8 +1068,8 @@ var QAPaths = function (spec) {
             }
         });
     });
-};
-var postProduction = function (config) {
+}
+function postProduction(config) {
     recursive('/home/dcarr/git/crunch/zoom/server/src/cr/server/api', ['*.py*'], 
     // eslint-disable-next-line n/handle-callback-err
     function (err, files) {
@@ -1081,9 +1086,9 @@ var postProduction = function (config) {
             }
         }
     });
-};
+}
 exports.postProduction = postProduction;
-var listEndpoints = function () {
+function listEndpoints() {
     var file = (0, fs_1.readFileSync)('/home/dcarr/git/crunch/zoom/server/src/cr/server/api/static/openapi.json', 'utf8');
     var spec = JSON.parse(file);
     Object.keys(spec.paths).forEach(function (path) {
@@ -1100,5 +1105,5 @@ var listEndpoints = function () {
             }
         });
     });
-};
+}
 exports.listEndpoints = listEndpoints;

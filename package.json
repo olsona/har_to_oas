@@ -4,13 +4,7 @@
   "description": "Convert har file to openapi spec",
   "main": "js_src/index.js",
   "scripts": {
-    "start": "node js_src/index.js",
-    "examples": "node js_src/index.js examples input/har1.json input/har2.json input/har3.json",
-    "schema": "node js_src/index.js schema output/examples.master.json",
-    "merge": "node js_src/index.js merge input/master.json output/withSchema.json output/openapi-spec.json",
-    "xcode": "node js_src/index.js xcode",
-    "post": "node js_src/index.js post",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "transform": "tsc ts_src/* --outDir js_src/"
   },
   "author": "",
   "license": "ISC",

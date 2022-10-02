@@ -5,14 +5,14 @@ import { Content, Entry, Har } from 'har-format'
 import * as YAML from 'js-yaml'
 import * as parseJson from 'parse-json'
 import * as pluralize from 'pluralize'
-import { config, exit } from 'process'
+import { exit } from 'process'
 import * as sortJson from 'sort-json'
 import { jsonInputForTargetLanguage, quicktype, InputData } from 'quicktype-core'
 import * as deref from 'json-schema-deref-sync'
 import * as toOpenApiSchema from '@openapi-contrib/json-schema-to-openapi-schema'
 import * as recursive from 'recursive-readdir'
 import * as _ from 'lodash'
-import { pad, capitalize, replaceValuesInPlace, replaceApos } from './util'
+import { pad, capitalize, replaceValuesInPlace, replaceApos, overwriteMerge } from './util'
 import { ExampleFile, Config } from './interfaces'
 
 async function quicktypeJSON (targetLanguage: string, typeName: string, sampleArray: any[]): Promise<{ properties?: { element?: any } }> {
@@ -39,14 +39,14 @@ async function quicktypeJSON (targetLanguage: string, typeName: string, sampleAr
   return deref(returnJSON) // this one does not contain references
 }
 
-const addMethod = (
+function addMethod (
   method: string,
   filteredUrl: string,
   originalPath: string,
   methodList: string[],
   spec: OpenApiSpec,
   config: Config
-): void => {
+): void {
   // generate operation id
   let operationId = filteredUrl.replace(/(^\/|\/$|{|})/g, '').replace(/\//g, '-')
   operationId = `${method}-${operationId}`
@@ -70,7 +70,7 @@ const addMethod = (
   methodList.push(`${tag}\t${filteredUrl}\t${method}\t${summary}`)
 }
 
-const addPath = (filteredUrl: string, spec: OpenApiSpec): void => {
+function addPath (filteredUrl: string, spec: OpenApiSpec): void {
   // identify what parameters this path has
   const parameters: any[] = []
   const parameterList = filteredUrl.match(/{.*?}/g)
@@ -96,7 +96,7 @@ const addPath = (filteredUrl: string, spec: OpenApiSpec): void => {
   }
 }
 
-const addQueryStringParams = (specMethod, harParams: any[]): void => {
+function addQueryStringParams (specMethod, harParams: any[]): void {
   const methodQueryParameters: any[] = []
   specMethod.parameters.forEach(param => {
     if (param.in === 'query') methodQueryParameters.push(param.name)
@@ -118,7 +118,7 @@ const addQueryStringParams = (specMethod, harParams: any[]): void => {
   })
 }
 
-const addResponse = (status: number, method: string, specPath: OperationObject): void => {
+function addResponse (status: number, method: string, specPath: OperationObject): void {
   switch (status) {
     case 200:
       switch (method) {
@@ -188,7 +188,7 @@ const addResponse = (status: number, method: string, specPath: OperationObject):
   }
 }
 
-const createXcodeSamples = (spec: OpenApiSpec, config: Config): void => {
+function createXcodeSamples (spec: OpenApiSpec, config: Config): void {
   Object.keys(spec.paths).forEach(path => {
     Object.keys(spec.paths[path]).forEach(lMethod => {
       if (lMethod === 'parameters') return
@@ -321,7 +321,7 @@ const createXcodeSamples = (spec: OpenApiSpec, config: Config): void => {
   })
 }
 
-const deriveSummary = (method: string, path: string): string => {
+function deriveSummary (method: string, path: string): string {
   const pathParts: string[] = path.split('/')
   const lastParam: string = pathParts.length > 1 ? pathParts[pathParts.length - 2] : ''
   const lastLastParam: string = pathParts.length > 3 ? pathParts[pathParts.length - 4] : ''
@@ -359,14 +359,14 @@ const deriveSummary = (method: string, path: string): string => {
   return 'SUMMARY'
 }
 
-const deriveTag = (path: string, config: Config): string => {
+function deriveTag (path: string, config: Config): string {
   for (const item of config.tags) {
     if (path.includes(item[0])) return item.length > 1 ? item[1] : capitalize(item[0])
   }
   return 'Miscellaneous'
 }
 
-const filterUrl = (config: Config, inputUrl: string): string => {
+function filterUrl (config: Config, inputUrl: string): string {
   let filteredUrl = inputUrl
   // filteredUrl = filteredUrl.replace(/by_name\/.*\//, 'by_name/{dataset-name}/')
 
@@ -378,7 +378,7 @@ const filterUrl = (config: Config, inputUrl: string): string => {
   return filteredUrl
 }
 
-const generateSamples = (spec: OpenApiSpec, outputFilename: string, config: Config): void => {
+function generateSamples (spec: OpenApiSpec, outputFilename: string, config: Config): void {
   // createJsonSchemas(spec)
   createXcodeSamples(spec, config)
 
@@ -400,16 +400,22 @@ const generateSamples = (spec: OpenApiSpec, outputFilename: string, config: Conf
   console.log(`${outputFilename} created`)
 }
 
-const harEntryToSpec = (item: Entry, spec: OpenApiSpec, methodList: string[], config: Config): void => {
-  // only care about urls that match target api
-  if (!item.request.url.includes(config.apiBasePath)) {
+function shouldIncludeEntry (item: Entry, apiBasePath: string): boolean {
+  if (item.request.url.includes(apiBasePath)) {
+    return true
+  } else {
     // requests to superadmin will not have url in path
     // I also check instead for html vs json response
     if (item.request.url.includes('api') || item.response?.content?.mimeType?.includes('application/json')) {
       console.log('apiBasePath mismatch', item.request.url)
+      return false
     }
-    return
+    return true
   }
+}
+
+function harEntryToSpec (item: Entry, spec: OpenApiSpec, methodList: string[], config: Config): void {
+  if (!shouldIncludeEntry(item, config.apiBasePath)) return
 
   // filter and collapse path urls
   const filteredUrl: string = filterUrl(config, item.request.url)
@@ -422,16 +428,13 @@ const harEntryToSpec = (item: Entry, spec: OpenApiSpec, methodList: string[], co
 
   // create method
   const method = item.request.method.toLowerCase()
-  if (!spec.paths[filteredUrl][method]) addMethod(method, filteredUrl, item.request.url, methodList, spec, config)
+  if (!spec.paths[filteredUrl][method]) {
+    addMethod(method, filteredUrl, item.request.url, methodList, spec, config)
+  }
   const specMethod = spec.paths[filteredUrl][method]
 
   // set original path to last request received
   specMethod.meta.originalPath = item.request.url
-
-  // console.log(filteredUrl, method)
-  // if (method === 'post' && filteredUrl === '/account/users/') {
-  //     console.log('hello')
-  // }
 
   // generate response
   addResponse(item.response.status, method, specMethod)
@@ -450,7 +453,7 @@ const harEntryToSpec = (item: Entry, spec: OpenApiSpec, methodList: string[], co
   }
 }
 
-const normalizeSpec = (spec: OpenApiSpec, config: Config): OpenApiSpec => {
+function normalizeSpec (spec: OpenApiSpec, config: Config): OpenApiSpec {
   // sort paths
   spec.paths = sortJson(spec.paths, { depth: 200 })
 
@@ -467,7 +470,7 @@ const normalizeSpec = (spec: OpenApiSpec, config: Config): OpenApiSpec => {
   return outputSpec
 }
 
-const writeSpecToFiles = (spec: OpenApiSpec, methodList: string[], outputFilename: string): void => {
+function writeSpecToFiles (spec: OpenApiSpec, methodList: string[], outputFilename: string): void {
   writeFileSync(outputFilename, JSON.stringify(spec, null, 2))
   writeFileSync(outputFilename + '.yaml', YAML.dump(spec))
 
@@ -480,7 +483,7 @@ const writeSpecToFiles = (spec: OpenApiSpec, methodList: string[], outputFilenam
   writeFileSync('output/methodList.txt', methodList.sort().join('\n'))
 }
 
-const generateSpec = (inputFilenames: string[], outputFilename: string, config: Config): void => {
+function generateSpec (inputFilenames: string[], outputFilename: string, config: Config): void {
   // load input files into memory
   const inputHars = inputFilenames.map(filename => parseHarFile(filename))
   const har = merge.all(inputHars) as Har
@@ -504,7 +507,7 @@ const generateSpec = (inputFilenames: string[], outputFilename: string, config: 
   console.log('Operations created:', methodList.length)
 }
 
-const mergeFiles = (masterFilename: string, toMergeFilename: string, outputFilename: string): void => {
+function mergeFiles (masterFilename: string, toMergeFilename: string, outputFilename: string): void {
   // load input file into memory
   const master = parseJsonFile(masterFilename) as OpenApiSpec
   const toMerge = parseJsonFile(toMergeFilename) as OpenApiSpec
@@ -527,7 +530,7 @@ const mergeFiles = (masterFilename: string, toMergeFilename: string, outputFilen
   console.log(`${outputFilename} created`)
 }
 
-const mergeRequestExample = (specMethod: OperationObject, postData: any): void => {
+function mergeRequestExample (specMethod: OperationObject, postData: any): void {
   // if (postData.mimeType === null) { // data sent
   if (_.has(postData, 'text')) { // data sent
     try {
@@ -596,13 +599,13 @@ const mergeRequestExample = (specMethod: OperationObject, postData: any): void =
   }
 }
 
-const mergeResponseExample = (
+function mergeResponseExample (
   specMethod: OperationObject,
   statusString: string,
   content: Content,
   method: string,
   filteredUrl: string
-): void => {
+): void {
   try {
     const data = JSON.parse(content.encoding === 'base64' ? Buffer.from(content.text, 'base64').toString() : content.text)
 
@@ -655,9 +658,7 @@ const mergeResponseExample = (
   }
 }
 
-const overwriteMerge = (destinationArray: any[], sourceArray: any[]): any[] => sourceArray
-
-const parseHarFileIntoIndividualFiles = (filename: string): void => {
+function parseHarFileIntoIndividualFiles (filename: string): void {
   const file = readFileSync(`input/${filename}`, 'utf8')
   try {
     const data: Har = JSON.parse(file)
@@ -680,7 +681,7 @@ const parseHarFileIntoIndividualFiles = (filename: string): void => {
   }
 }
 
-const parseHarFile = (filename: string): object => {
+function parseHarFile (filename: string): object {
   const file = readFileSync(filename, 'utf8')
   try {
     const data: Har = JSON.parse(file)
@@ -707,7 +708,7 @@ const parseHarFile = (filename: string): object => {
   }
 }
 
-const parseJsonFile = (filename: string): object => {
+function parseJsonFile (filename: string): object {
   const file = readFileSync(filename, 'utf8')
   try {
     return JSON.parse(file)
@@ -717,7 +718,7 @@ const parseJsonFile = (filename: string): object => {
   }
 }
 
-const writeExamples = (spec: OpenApiSpec): void => {
+function writeExamples (spec: OpenApiSpec): void {
   const specExamples = {}
   Object.keys(spec.paths).forEach(path => {
     specExamples[path] = {}
@@ -780,7 +781,7 @@ const writeExamples = (spec: OpenApiSpec): void => {
   writeFileSync('output/examples.json', JSON.stringify(sortedExamples, null, 2))
 }
 
-const validateExampleList = (exampleObject: Object, exampleObjectName: string, exampleFilename: string): { allExamples: string[], publishExamples: object, firstExample: any } => {
+function validateExampleList (exampleObject: Object, exampleObjectName: string, exampleFilename: string): { allExamples: string[], publishExamples: object, firstExample: any } {
   const allExamples: string[] = []
   const publishExamplesArray: any[] = []
   for (const exampleName in exampleObject) {
@@ -805,7 +806,7 @@ const validateExampleList = (exampleObject: Object, exampleObjectName: string, e
   }
 }
 
-const generateSchema = async (exampleFilename: string): Promise<OpenApiSpec> => {
+async function generateSchema (exampleFilename: string): Promise<OpenApiSpec> {
   const masterExamples = parseJsonFile(exampleFilename) as ExampleFile
   const oldSpec = parseJsonFile('output/examples.spec.json') as OpenApiSpec
   const newSpec: OpenApiSpec = {
@@ -942,7 +943,7 @@ const generateSchema = async (exampleFilename: string): Promise<OpenApiSpec> => 
   return newSpec
 }
 
-const updateXcode = (filename: string, config: Config): void => {
+function updateXcode (filename: string, config: Config): void {
   console.log(filename)
   // input file yaml to json object
   const file: OpenApiSpec = YAML.safeLoad(readFileSync(filename))
@@ -954,7 +955,7 @@ const updateXcode = (filename: string, config: Config): void => {
   writeFileSync(filename, YAML.safeDump(file))
 }
 
-const QAPaths = (spec: OpenApiSpec): void => {
+function QAPaths (spec: OpenApiSpec): void {
   Object.keys(spec.paths).forEach(path => {
     Object.keys(spec.paths[path]).forEach(lMethod => {
       if (lMethod === 'parameters') return
@@ -1047,7 +1048,7 @@ const QAPaths = (spec: OpenApiSpec): void => {
   })
 }
 
-const postProduction = (config: Config): void => {
+function postProduction (config: Config): void {
   recursive(
     '/home/dcarr/git/crunch/zoom/server/src/cr/server/api',
     ['*.py*'],
@@ -1069,7 +1070,7 @@ const postProduction = (config: Config): void => {
     })
 }
 
-const listEndpoints = (): void => {
+function listEndpoints (): void {
   const file = readFileSync('/home/dcarr/git/crunch/zoom/server/src/cr/server/api/static/openapi.json', 'utf8')
   const spec: OpenApiSpec = JSON.parse(file)
   Object.keys(spec.paths).forEach(path => {
