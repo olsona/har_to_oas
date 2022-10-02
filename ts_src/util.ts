@@ -12,6 +12,9 @@ const capitalize = (s: string): string => {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
+const replaceApos = (s: string): string => s // rapidoc now supports single quote
+// const replaceApos = (s: string): string => s.replace(/'/g, "&apos;")
+
 const constructJsonPath = (partialPath: string | string[]): string => {
   if (_.isString(partialPath)) {
     return '$..' + partialPath
@@ -33,5 +36,6 @@ const replaceValuesInPlace = (config: Config, object: object): void => {
 export {
   pad,
   capitalize,
-  replaceValuesInPlace
+  replaceValuesInPlace,
+  replaceApos
 }

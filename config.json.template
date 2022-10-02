@@ -8,7 +8,7 @@
     "secret": ""
   },
   "valueReplace": [
-    "password": "swordfish"
+    ["password", "swordfish"]
   ],
   "tags": [
     ["slides"],

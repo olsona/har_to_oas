@@ -12,7 +12,7 @@ import * as deref from 'json-schema-deref-sync'
 import * as toOpenApiSchema from '@openapi-contrib/json-schema-to-openapi-schema'
 import * as recursive from 'recursive-readdir'
 import * as _ from 'lodash'
-import { pad, capitalize, replaceValuesInPlace } from './util'
+import { pad, capitalize, replaceValuesInPlace, replaceApos } from './util'
 import { ExampleFile, Config } from './interfaces'
 
 async function quicktypeJSON (targetLanguage: string, typeName: string, sampleArray: any[]): Promise<{ properties?: { element?: any } }> {
@@ -475,10 +475,14 @@ const generateSpec = (inputFilenames: string[], outputFilename: string, config: 
     addQueryStringParams(specMethod, item.request.queryString)
 
     // merge request example
-    if (item.request.bodySize > 0 && item.response.status < 400) mergeRequestExample(specMethod, item.request.postData)
+    if (item.request.bodySize > 0 && item.response.status < 400) {
+      mergeRequestExample(specMethod, item.request.postData)
+    }
 
     // merge response example
-    if (item.response.bodySize > 0) mergeResponseExample(specMethod, item.response.status.toString(), item.response.content, method, filteredUrl)
+    if (item.response.bodySize > 0) {
+      mergeResponseExample(specMethod, item.response.status.toString(), item.response.content, method, filteredUrl)
+    }
 
     // writeFileSync('test.json', JSON.stringify(item, null, 2))
     // exit(0);
@@ -497,6 +501,8 @@ const generateSpec = (inputFilenames: string[], outputFilename: string, config: 
     specString = specString.replace(re, config.replace[key])
   }
   const outputSpec = parseJson(specString)
+
+  // replaceValuesInPlace(config, outputSpec)
 
   writeFileSync(outputFilename, JSON.stringify(outputSpec, null, 2))
   writeFileSync(outputFilename + '.yaml', YAML.dump(outputSpec))
@@ -725,9 +731,6 @@ const parseJsonFile = (filename: string): object => {
     exit(1)
   }
 }
-
-const replaceApos = (s: string): string => s // rapidoc now supports single quote
-// const replaceApos = (s: string): string => s.replace(/'/g, "&apos;")
 
 const writeExamples = (spec: OpenApiSpec): void => {
   const specExamples = {}
