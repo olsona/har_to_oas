@@ -10,6 +10,14 @@ if (process_1.argv.length < 3) {
     console.log("Usage: node ".concat(process_1.argv[1], " merge masterFilename.json toMergeFilename.json outputFilename.json"));
 }
 else {
+    var config_1;
+    try {
+        config_1 = require('../config.json');
+    }
+    catch (_a) {
+        console.log('File config.json not found. Please copy config.json.template to config.json');
+        (0, process_1.exit)(0);
+    }
     switch (process_1.argv[2]) {
         case 'examples': {
             // grab input and output filenames
@@ -19,18 +27,9 @@ else {
             }
             var outputFilename = 'output/examples.spec.json';
             var inputFilenames = process_1.argv.slice(3);
-            // grab config file
-            var config = void 0;
-            try {
-                config = require('../config.json');
-            }
-            catch (_a) {
-                console.log('File config.json not found. Please copy config.json.template to config.json');
-                (0, process_1.exit)(0);
-            }
-            config.pathReplace[config.apiBasePath] = ''; // add base path to replace out
+            config_1.pathReplace[config_1.apiBasePath] = ''; // add base path to replace out
             // generate spec file
-            (0, lib_1.generateSpec)(inputFilenames, outputFilename, config);
+            (0, lib_1.generateSpec)(inputFilenames, outputFilename, config_1);
             break;
         }
         case 'schema': {
@@ -41,7 +40,7 @@ else {
             var exampleFile = process_1.argv[3];
             (0, lib_1.generateSchema)(exampleFile)
                 .then(function (spec) {
-                (0, lib_1.generateSamples)(spec, 'output/schema.spec.json');
+                (0, lib_1.generateSamples)(spec, 'output/schema.spec.json', config_1);
             })["catch"](function (err) { console.log(err); });
             break;
         }
@@ -53,13 +52,13 @@ else {
                 for (var _i = 0, files_1 = files; _i < files_1.length; _i++) {
                     var file = files_1[_i];
                     if (file.includes('openapi'))
-                        (0, lib_1.updateXcode)(file);
+                        (0, lib_1.updateXcode)(file, config_1);
                 }
             });
             break;
         }
         case 'post': {
-            (0, lib_1.postProduction)();
+            (0, lib_1.postProduction)(config_1);
             break;
         }
         case 'list': {

@@ -218,7 +218,7 @@ var addResponse = function (status, method, specPath) {
             break;
     }
 };
-var createXcodeSamples = function (spec) {
+var createXcodeSamples = function (spec, config) {
     Object.keys(spec.paths).forEach(function (path) {
         Object.keys(spec.paths[path]).forEach(function (lMethod) {
             var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y;
@@ -226,7 +226,7 @@ var createXcodeSamples = function (spec) {
                 return;
             var method = spec.paths[path][lMethod];
             var scrubbedPath;
-            util_1.xCodeScrubRules.forEach(function (rule) {
+            config.xCodeScrub.forEach(function (rule) {
                 scrubbedPath = path.replace(rule.regex, rule.replacement);
             });
             method['x-code-samples'] = (_a = method['x-code-samples']) !== null && _a !== void 0 ? _a : [];
@@ -394,9 +394,9 @@ var filterUrl = function (config, inputUrl) {
     }
     return filteredUrl;
 };
-var generateSamples = function (spec, outputFilename) {
+var generateSamples = function (spec, outputFilename, config) {
     // createJsonSchemas(spec)
-    createXcodeSamples(spec);
+    createXcodeSamples(spec, config);
     // perform the final strip where we take out things we don't want to see in final spec
     Object.keys(spec.paths).forEach(function (path) {
         Object.keys(spec.paths[path]).forEach(function (lMethod) {
@@ -963,12 +963,12 @@ var generateSchema = function (exampleFilename) { return __awaiter(void 0, void 
     });
 }); };
 exports.generateSchema = generateSchema;
-var updateXcode = function (filename) {
+var updateXcode = function (filename, config) {
     console.log(filename);
     // input file yaml to json object
     var file = YAML.safeLoad((0, fs_1.readFileSync)(filename));
     // generate new samples
-    createXcodeSamples(file);
+    createXcodeSamples(file, config);
     // write file back to orig yaml
     (0, fs_1.writeFileSync)(filename, YAML.safeDump(file));
 };
@@ -1064,7 +1064,7 @@ var QAPaths = function (spec) {
         });
     });
 };
-var postProduction = function () {
+var postProduction = function (config) {
     recursive('/home/dcarr/git/crunch/zoom/server/src/cr/server/api', ['*.py*'], 
     // eslint-disable-next-line n/handle-callback-err
     function (err, files) {
@@ -1074,7 +1074,7 @@ var postProduction = function () {
                 console.log("ANALYZING OPENAPI FILE ".concat(filename));
                 var file = YAML.safeLoad((0, fs_1.readFileSync)(filename));
                 // generate new samples
-                createXcodeSamples(file);
+                createXcodeSamples(file, config);
                 QAPaths(file);
                 // write file back to orig yaml
                 (0, fs_1.writeFileSync)(filename, YAML.safeDump(file));

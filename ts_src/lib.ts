@@ -5,14 +5,14 @@ import { Content, Entry, Har } from 'har-format'
 import * as YAML from 'js-yaml'
 import * as parseJson from 'parse-json'
 import * as pluralize from 'pluralize'
-import { exit } from 'process'
+import { config, exit } from 'process'
 import * as sortJson from 'sort-json'
 import { jsonInputForTargetLanguage, quicktype, InputData } from 'quicktype-core'
 import * as deref from 'json-schema-deref-sync'
 import * as toOpenApiSchema from '@openapi-contrib/json-schema-to-openapi-schema'
 import * as recursive from 'recursive-readdir'
 import * as _ from 'lodash'
-import { pad, capitalize, replaceValuesInPlace, replaceApos, xCodeScrubRules } from './util'
+import { pad, capitalize, replaceValuesInPlace, replaceApos } from './util'
 import { ExampleFile, Config } from './interfaces'
 
 async function quicktypeJSON (targetLanguage: string, typeName: string, sampleArray: any[]): Promise<{ properties?: { element?: any } }> {
@@ -188,13 +188,13 @@ const addResponse = (status: number, method: string, specPath: OperationObject):
   }
 }
 
-const createXcodeSamples = (spec: OpenApiSpec): void => {
+const createXcodeSamples = (spec: OpenApiSpec, config: Config): void => {
   Object.keys(spec.paths).forEach(path => {
     Object.keys(spec.paths[path]).forEach(lMethod => {
       if (lMethod === 'parameters') return
       const method = spec.paths[path][lMethod]
       let scrubbedPath: string
-      xCodeScrubRules.forEach(rule => {
+      config.xCodeScrub.forEach(rule => {
         scrubbedPath = path.replace(rule.regex, rule.replacement)
       })
 
@@ -378,9 +378,9 @@ const filterUrl = (config: Config, inputUrl: string): string => {
   return filteredUrl
 }
 
-const generateSamples = (spec: OpenApiSpec, outputFilename: string): void => {
+const generateSamples = (spec: OpenApiSpec, outputFilename: string, config: Config): void => {
   // createJsonSchemas(spec)
-  createXcodeSamples(spec)
+  createXcodeSamples(spec, config)
 
   // perform the final strip where we take out things we don't want to see in final spec
   Object.keys(spec.paths).forEach(path => {
@@ -942,13 +942,13 @@ const generateSchema = async (exampleFilename: string): Promise<OpenApiSpec> => 
   return newSpec
 }
 
-const updateXcode = (filename: string): void => {
+const updateXcode = (filename: string, config: Config): void => {
   console.log(filename)
   // input file yaml to json object
   const file: OpenApiSpec = YAML.safeLoad(readFileSync(filename))
 
   // generate new samples
-  createXcodeSamples(file)
+  createXcodeSamples(file, config)
 
   // write file back to orig yaml
   writeFileSync(filename, YAML.safeDump(file))
@@ -1047,7 +1047,7 @@ const QAPaths = (spec: OpenApiSpec): void => {
   })
 }
 
-const postProduction = (): void => {
+const postProduction = (config: Config): void => {
   recursive(
     '/home/dcarr/git/crunch/zoom/server/src/cr/server/api',
     ['*.py*'],
@@ -1059,7 +1059,7 @@ const postProduction = (): void => {
           const file: OpenApiSpec = YAML.safeLoad(readFileSync(filename))
 
           // generate new samples
-          createXcodeSamples(file)
+          createXcodeSamples(file, config)
           QAPaths(file)
 
           // write file back to orig yaml

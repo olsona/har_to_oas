@@ -33,6 +33,7 @@ interface Config {
     [search: string]: any
   }
   valueReplace: ObjectPathRule[]
+  xCodeScrub: RegexRule[]
   tags: string[][]
 }
 

@@ -16,6 +16,13 @@ if (argv.length < 3) {
   console.log(`Usage: node ${argv[1]} xcode`)
   console.log(`Usage: node ${argv[1]} merge masterFilename.json toMergeFilename.json outputFilename.json`)
 } else {
+  let config: Config
+  try {
+    config = require('../config.json')
+  } catch {
+    console.log('File config.json not found. Please copy config.json.template to config.json')
+    exit(0)
+  }
   switch (argv[2]) {
     case 'examples': {
       // grab input and output filenames
@@ -26,14 +33,6 @@ if (argv.length < 3) {
       const outputFilename = 'output/examples.spec.json'
       const inputFilenames = argv.slice(3)
 
-      // grab config file
-      let config: Config
-      try {
-        config = require('../config.json')
-      } catch {
-        console.log('File config.json not found. Please copy config.json.template to config.json')
-        exit(0)
-      }
       config.pathReplace[config.apiBasePath] = '' // add base path to replace out
 
       // generate spec file
@@ -48,7 +47,7 @@ if (argv.length < 3) {
       const exampleFile = argv[3]
       generateSchema(exampleFile)
         .then(spec => {
-          generateSamples(spec, 'output/schema.spec.json')
+          generateSamples(spec, 'output/schema.spec.json', config)
         })
         .catch(err => { console.log(err) })
       break
@@ -63,13 +62,13 @@ if (argv.length < 3) {
         ['*.py*'],
         function (err, files) {
           for (const file of files) {
-            if (file.includes('openapi')) updateXcode(file)
+            if (file.includes('openapi')) updateXcode(file, config)
           }
         })
       break
     }
     case 'post': {
-      postProduction()
+      postProduction(config)
       break
     }
     case 'list': {
