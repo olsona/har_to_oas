@@ -8,7 +8,8 @@
     "secret": ""
   },
   "valueReplace": [
-    ["password", "swordfish"]
+    ["password", "swordfish"],
+    [["user", "email"], "user@example.com"]
   ],
   "tags": [
     ["slides"],

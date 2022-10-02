@@ -30,7 +30,7 @@ interface Config {
     [search: string]: string
   }
   replace: {
-    [search: string]: string
+    [search: string]: any
   }
   valueReplace: string[][]
   tags: string[][]

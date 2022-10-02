@@ -502,7 +502,7 @@ const generateSpec = (inputFilenames: string[], outputFilename: string, config: 
   }
   const outputSpec = parseJson(specString)
 
-  // replaceValuesInPlace(config, outputSpec)
+  replaceValuesInPlace(config, outputSpec)
 
   writeFileSync(outputFilename, JSON.stringify(outputSpec, null, 2))
   writeFileSync(outputFilename + '.yaml', YAML.dump(outputSpec))

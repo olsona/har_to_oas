@@ -27,6 +27,7 @@ const replaceValuesInPlace = (config: Config, object: object): void => {
     const partialPath = element[0]
     const replacement = element[1]
     const paths = jsonPath.paths(object, constructJsonPath(partialPath))
+    console.log('Paths for ' + partialPath, paths)
     paths.forEach((path) => {
       _.set(object, path.slice(1), replacement)
     })

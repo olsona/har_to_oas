@@ -282,7 +282,7 @@ var createXcodeSamples = function (spec) {
             var found = false;
             var shellCodeSample = {
                 lang: 'SHELL',
-                source: replaceApos(curlCode),
+                source: (0, util_1.replaceApos)(curlCode),
                 syntaxLang: 'bash'
             };
             for (var codeSample in method['x-code-samples']) {
@@ -348,7 +348,7 @@ var createXcodeSamples = function (spec) {
             found = false;
             var jsCodeSample = {
                 lang: 'JAVASCRIPT',
-                source: replaceApos(jsCode.join('\n')),
+                source: (0, util_1.replaceApos)(jsCode.join('\n')),
                 syntaxLang: 'javascript'
             };
             for (var codeSample in method['x-code-samples']) {
@@ -481,11 +481,13 @@ var generateSpec = function (inputFilenames, outputFilename, config) {
         // add query string parameters
         addQueryStringParams(specMethod, item.request.queryString);
         // merge request example
-        if (item.request.bodySize > 0 && item.response.status < 400)
+        if (item.request.bodySize > 0 && item.response.status < 400) {
             mergeRequestExample(specMethod, item.request.postData);
+        }
         // merge response example
-        if (item.response.bodySize > 0)
+        if (item.response.bodySize > 0) {
             mergeResponseExample(specMethod, item.response.status.toString(), item.response.content, method, filteredUrl);
+        }
         // writeFileSync('test.json', JSON.stringify(item, null, 2))
         // exit(0);
     });
@@ -500,6 +502,7 @@ var generateSpec = function (inputFilenames, outputFilename, config) {
         specString = specString.replace(re, config.replace[key]);
     }
     var outputSpec = parseJson(specString);
+    (0, util_1.replaceValuesInPlace)(config, outputSpec);
     (0, fs_1.writeFileSync)(outputFilename, JSON.stringify(outputSpec, null, 2));
     (0, fs_1.writeFileSync)(outputFilename + '.yaml', YAML.dump(outputSpec));
     writeExamples(outputSpec);
@@ -706,8 +709,6 @@ var parseJsonFile = function (filename) {
         (0, process_1.exit)(1);
     }
 };
-var replaceApos = function (s) { return s; }; // rapidoc now supports single quote
-// const replaceApos = (s: string): string => s.replace(/'/g, "&apos;")
 var writeExamples = function (spec) {
     var specExamples = {};
     Object.keys(spec.paths).forEach(function (path) {

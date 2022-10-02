@@ -1,6 +1,6 @@
 "use strict";
 exports.__esModule = true;
-exports.replaceValuesInPlace = exports.capitalize = exports.pad = void 0;
+exports.replaceApos = exports.replaceValuesInPlace = exports.capitalize = exports.pad = void 0;
 var jsonPath = require("jsonPath");
 var _ = require("lodash");
 var pad = function (m, width, z) {
@@ -15,6 +15,9 @@ var capitalize = function (s) {
     return s.charAt(0).toUpperCase() + s.slice(1);
 };
 exports.capitalize = capitalize;
+var replaceApos = function (s) { return s; }; // rapidoc now supports single quote
+exports.replaceApos = replaceApos;
+// const replaceApos = (s: string): string => s.replace(/'/g, "&apos;")
 var constructJsonPath = function (partialPath) {
     if (_.isString(partialPath)) {
         return '$..' + partialPath;
@@ -26,6 +29,7 @@ var replaceValuesInPlace = function (config, object) {
         var partialPath = element[0];
         var replacement = element[1];
         var paths = jsonPath.paths(object, constructJsonPath(partialPath));
+        console.log('Paths for ' + partialPath, paths);
         paths.forEach(function (path) {
             _.set(object, path.slice(1), replacement);
         });
