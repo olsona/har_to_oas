@@ -24,12 +24,11 @@ var constructJsonPath = function (partialPath) {
     }
     return '$..' + partialPath.join('..');
 };
-var replaceValuesInPlace = function (config, object) {
+var replaceValuesInPlace = function (object, config) {
     config.valueReplace.forEach(function (element) {
         var partialPath = element[0];
         var replacement = element[1];
         var paths = jsonPath.paths(object, constructJsonPath(partialPath));
-        console.log('Paths for ' + partialPath, paths);
         paths.forEach(function (path) {
             _.set(object, path.slice(1), replacement);
         });

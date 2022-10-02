@@ -1,7 +1,7 @@
 import { createEmptyApiSpec, OpenApiSpec, OperationObject } from '@loopback/openapi-v3-types'
 import * as merge from 'deepmerge'
 import { readFileSync, writeFileSync } from 'fs'
-import { Content, Har } from 'har-format'
+import { Content, Entry, Har } from 'har-format'
 import * as YAML from 'js-yaml'
 import * as parseJson from 'parse-json'
 import * as pluralize from 'pluralize'
@@ -426,71 +426,57 @@ const generateSamples = (spec: OpenApiSpec, outputFilename: string): void => {
   console.log(`${outputFilename} created`)
 }
 
-const generateSpec = (inputFilenames: string[], outputFilename: string, config: Config): void => {
-  // load input files into memory
-  const inputHars = inputFilenames.map(filename => parseHarFile(filename))
-  const har = merge.all(inputHars) as Har
-  console.log(`Network requests found in har file(s): ${har.log.entries.length}`)
-
-  // loop through har entries
-  const spec = createEmptyApiSpec()
-  const methodList = []
-  har.log.entries.sort().forEach(item => {
-    // only care about urls that match target api
-    if (!item.request.url.includes(config.apiBasePath)) {
-      // requests to superadmin will not have url in path
-      // I also check instead for html vs json response
-      if (item.request.url.includes('api') || item.response?.content?.mimeType?.includes('application/json')) {
-        console.log('apiBasePath mismatch', item.request.url)
-      }
-      return
+const harEntryToSpec = (item: Entry, spec: OpenApiSpec, methodList: string[], config: Config): void => {
+  // only care about urls that match target api
+  if (!item.request.url.includes(config.apiBasePath)) {
+    // requests to superadmin will not have url in path
+    // I also check instead for html vs json response
+    if (item.request.url.includes('api') || item.response?.content?.mimeType?.includes('application/json')) {
+      console.log('apiBasePath mismatch', item.request.url)
     }
+    return
+  }
 
-    // filter and collapse path urls
-    const filteredUrl: string = filterUrl(config, item.request.url)
+  // filter and collapse path urls
+  const filteredUrl: string = filterUrl(config, item.request.url)
 
-    // continue if url is blank
-    if (filteredUrl === '') return
+  // continue if url is blank
+  if (filteredUrl === '') return
 
-    // create path
-    if (!spec.paths[filteredUrl]) addPath(filteredUrl, spec)
+  // create path
+  if (!spec.paths[filteredUrl]) addPath(filteredUrl, spec)
 
-    // create method
-    const method = item.request.method.toLowerCase()
-    if (!spec.paths[filteredUrl][method]) addMethod(method, filteredUrl, item.request.url, methodList, spec, config)
-    const specMethod = spec.paths[filteredUrl][method]
+  // create method
+  const method = item.request.method.toLowerCase()
+  if (!spec.paths[filteredUrl][method]) addMethod(method, filteredUrl, item.request.url, methodList, spec, config)
+  const specMethod = spec.paths[filteredUrl][method]
 
-    // set original path to last request received
-    specMethod.meta.originalPath = item.request.url
+  // set original path to last request received
+  specMethod.meta.originalPath = item.request.url
 
-    // console.log(filteredUrl, method)
-    // if (method === 'post' && filteredUrl === '/account/users/') {
-    //     console.log('hello')
-    // }
+  // console.log(filteredUrl, method)
+  // if (method === 'post' && filteredUrl === '/account/users/') {
+  //     console.log('hello')
+  // }
 
-    // generate response
-    addResponse(item.response.status, method, specMethod)
+  // generate response
+  addResponse(item.response.status, method, specMethod)
 
-    // add query string parameters
-    addQueryStringParams(specMethod, item.request.queryString)
+  // add query string parameters
+  addQueryStringParams(specMethod, item.request.queryString)
 
-    // merge request example
-    if (item.request.bodySize > 0 && item.response.status < 400) {
-      mergeRequestExample(specMethod, item.request.postData)
-    }
+  // merge request example
+  if (item.request.bodySize > 0 && item.response.status < 400) {
+    mergeRequestExample(specMethod, item.request.postData)
+  }
 
-    // merge response example
-    if (item.response.bodySize > 0) {
-      mergeResponseExample(specMethod, item.response.status.toString(), item.response.content, method, filteredUrl)
-    }
+  // merge response example
+  if (item.response.bodySize > 0) {
+    mergeResponseExample(specMethod, item.response.status.toString(), item.response.content, method, filteredUrl)
+  }
+}
 
-    // writeFileSync('test.json', JSON.stringify(item, null, 2))
-    // exit(0);
-  })
-
-  // ia am removing this for now because full examples will give us better json schema detection
-  // shortenExamples(spec);
-
+const normalizeSpec = (spec: OpenApiSpec, config: Config): OpenApiSpec => {
   // sort paths
   spec.paths = sortJson(spec.paths, { depth: 200 })
 
@@ -500,20 +486,45 @@ const generateSpec = (inputFilenames: string[], outputFilename: string, config: 
     const re = new RegExp(key, 'g')
     specString = specString.replace(re, config.replace[key])
   }
-  const outputSpec = parseJson(specString)
+  const outputSpec: OpenApiSpec = parseJson(specString)
 
-  replaceValuesInPlace(config, outputSpec)
+  replaceValuesInPlace(outputSpec, config)
 
-  writeFileSync(outputFilename, JSON.stringify(outputSpec, null, 2))
-  writeFileSync(outputFilename + '.yaml', YAML.dump(outputSpec))
+  return outputSpec
+}
 
-  writeExamples(outputSpec)
+const writeSpecToFiles = (spec: OpenApiSpec, methodList: string[], outputFilename: string): void => {
+  writeFileSync(outputFilename, JSON.stringify(spec, null, 2))
+  writeFileSync(outputFilename + '.yaml', YAML.dump(spec))
 
-  // write urlList to debug
-  writeFileSync('output/pathList.txt', Object.keys(outputSpec.paths).join('\n'))
+  writeExamples(spec)
+
+  // write path list to debug
+  writeFileSync('output/pathList.txt', Object.keys(spec.paths).join('\n'))
 
   // write method list to debug
   writeFileSync('output/methodList.txt', methodList.sort().join('\n'))
+}
+
+const generateSpec = (inputFilenames: string[], outputFilename: string, config: Config): void => {
+  // load input files into memory
+  const inputHars = inputFilenames.map(filename => parseHarFile(filename))
+  const har = merge.all(inputHars) as Har
+  console.log(`Network requests found in har file(s): ${har.log.entries.length}`)
+
+  // loop through har entries
+  const spec = createEmptyApiSpec()
+  const methodList: string[] = []
+  har.log.entries.sort().forEach(item => {
+    harEntryToSpec(item, spec, methodList, config)
+  })
+
+  // ia am removing this for now because full examples will give us better json schema detection
+  // shortenExamples(spec);
+
+  const outputSpec = normalizeSpec(spec, config)
+
+  writeSpecToFiles(outputSpec, methodList, outputFilename)
 
   console.log('Paths created:', Object.keys(outputSpec.paths).length)
   console.log('Operations created:', methodList.length)

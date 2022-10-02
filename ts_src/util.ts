@@ -22,12 +22,11 @@ const constructJsonPath = (partialPath: string | string[]): string => {
   return '$..' + partialPath.join('..')
 }
 
-const replaceValuesInPlace = (config: Config, object: object): void => {
+const replaceValuesInPlace = (object: object, config: Config): void => {
   config.valueReplace.forEach((element) => {
     const partialPath = element[0]
     const replacement = element[1]
     const paths = jsonPath.paths(object, constructJsonPath(partialPath))
-    console.log('Paths for ' + partialPath, paths)
     paths.forEach((path) => {
       _.set(object, path.slice(1), replacement)
     })

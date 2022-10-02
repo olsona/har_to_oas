@@ -438,61 +438,50 @@ var generateSamples = function (spec, outputFilename) {
     console.log("".concat(outputFilename, " created"));
 };
 exports.generateSamples = generateSamples;
-var generateSpec = function (inputFilenames, outputFilename, config) {
-    // load input files into memory
-    var inputHars = inputFilenames.map(function (filename) { return parseHarFile(filename); });
-    var har = merge.all(inputHars);
-    console.log("Network requests found in har file(s): ".concat(har.log.entries.length));
-    // loop through har entries
-    var spec = (0, openapi_v3_types_1.createEmptyApiSpec)();
-    var methodList = [];
-    har.log.entries.sort().forEach(function (item) {
-        var _a, _b, _c;
-        // only care about urls that match target api
-        if (!item.request.url.includes(config.apiBasePath)) {
-            // requests to superadmin will not have url in path
-            // I also check instead for html vs json response
-            if (item.request.url.includes('api') || ((_c = (_b = (_a = item.response) === null || _a === void 0 ? void 0 : _a.content) === null || _b === void 0 ? void 0 : _b.mimeType) === null || _c === void 0 ? void 0 : _c.includes('application/json'))) {
-                console.log('apiBasePath mismatch', item.request.url);
-            }
-            return;
+var harEntryToSpec = function (item, spec, methodList, config) {
+    var _a, _b, _c;
+    // only care about urls that match target api
+    if (!item.request.url.includes(config.apiBasePath)) {
+        // requests to superadmin will not have url in path
+        // I also check instead for html vs json response
+        if (item.request.url.includes('api') || ((_c = (_b = (_a = item.response) === null || _a === void 0 ? void 0 : _a.content) === null || _b === void 0 ? void 0 : _b.mimeType) === null || _c === void 0 ? void 0 : _c.includes('application/json'))) {
+            console.log('apiBasePath mismatch', item.request.url);
         }
-        // filter and collapse path urls
-        var filteredUrl = filterUrl(config, item.request.url);
-        // continue if url is blank
-        if (filteredUrl === '')
-            return;
-        // create path
-        if (!spec.paths[filteredUrl])
-            addPath(filteredUrl, spec);
-        // create method
-        var method = item.request.method.toLowerCase();
-        if (!spec.paths[filteredUrl][method])
-            addMethod(method, filteredUrl, item.request.url, methodList, spec, config);
-        var specMethod = spec.paths[filteredUrl][method];
-        // set original path to last request received
-        specMethod.meta.originalPath = item.request.url;
-        // console.log(filteredUrl, method)
-        // if (method === 'post' && filteredUrl === '/account/users/') {
-        //     console.log('hello')
-        // }
-        // generate response
-        addResponse(item.response.status, method, specMethod);
-        // add query string parameters
-        addQueryStringParams(specMethod, item.request.queryString);
-        // merge request example
-        if (item.request.bodySize > 0 && item.response.status < 400) {
-            mergeRequestExample(specMethod, item.request.postData);
-        }
-        // merge response example
-        if (item.response.bodySize > 0) {
-            mergeResponseExample(specMethod, item.response.status.toString(), item.response.content, method, filteredUrl);
-        }
-        // writeFileSync('test.json', JSON.stringify(item, null, 2))
-        // exit(0);
-    });
-    // ia am removing this for now because full examples will give us better json schema detection
-    // shortenExamples(spec);
+        return;
+    }
+    // filter and collapse path urls
+    var filteredUrl = filterUrl(config, item.request.url);
+    // continue if url is blank
+    if (filteredUrl === '')
+        return;
+    // create path
+    if (!spec.paths[filteredUrl])
+        addPath(filteredUrl, spec);
+    // create method
+    var method = item.request.method.toLowerCase();
+    if (!spec.paths[filteredUrl][method])
+        addMethod(method, filteredUrl, item.request.url, methodList, spec, config);
+    var specMethod = spec.paths[filteredUrl][method];
+    // set original path to last request received
+    specMethod.meta.originalPath = item.request.url;
+    // console.log(filteredUrl, method)
+    // if (method === 'post' && filteredUrl === '/account/users/') {
+    //     console.log('hello')
+    // }
+    // generate response
+    addResponse(item.response.status, method, specMethod);
+    // add query string parameters
+    addQueryStringParams(specMethod, item.request.queryString);
+    // merge request example
+    if (item.request.bodySize > 0 && item.response.status < 400) {
+        mergeRequestExample(specMethod, item.request.postData);
+    }
+    // merge response example
+    if (item.response.bodySize > 0) {
+        mergeResponseExample(specMethod, item.response.status.toString(), item.response.content, method, filteredUrl);
+    }
+};
+var normalizeSpec = function (spec, config) {
     // sort paths
     spec.paths = sortJson(spec.paths, { depth: 200 });
     // global replace
@@ -502,14 +491,33 @@ var generateSpec = function (inputFilenames, outputFilename, config) {
         specString = specString.replace(re, config.replace[key]);
     }
     var outputSpec = parseJson(specString);
-    (0, util_1.replaceValuesInPlace)(config, outputSpec);
-    (0, fs_1.writeFileSync)(outputFilename, JSON.stringify(outputSpec, null, 2));
-    (0, fs_1.writeFileSync)(outputFilename + '.yaml', YAML.dump(outputSpec));
-    writeExamples(outputSpec);
+    (0, util_1.replaceValuesInPlace)(outputSpec, config);
+    return outputSpec;
+};
+var writeSpecToFiles = function (spec, methodList, outputFilename) {
+    (0, fs_1.writeFileSync)(outputFilename, JSON.stringify(spec, null, 2));
+    (0, fs_1.writeFileSync)(outputFilename + '.yaml', YAML.dump(spec));
+    writeExamples(spec);
     // write urlList to debug
-    (0, fs_1.writeFileSync)('output/pathList.txt', Object.keys(outputSpec.paths).join('\n'));
+    (0, fs_1.writeFileSync)('output/pathList.txt', Object.keys(spec.paths).join('\n'));
     // write method list to debug
     (0, fs_1.writeFileSync)('output/methodList.txt', methodList.sort().join('\n'));
+};
+var generateSpec = function (inputFilenames, outputFilename, config) {
+    // load input files into memory
+    var inputHars = inputFilenames.map(function (filename) { return parseHarFile(filename); });
+    var har = merge.all(inputHars);
+    console.log("Network requests found in har file(s): ".concat(har.log.entries.length));
+    // loop through har entries
+    var spec = (0, openapi_v3_types_1.createEmptyApiSpec)();
+    var methodList = [];
+    har.log.entries.sort().forEach(function (item) {
+        harEntryToSpec(item, spec, methodList, config);
+    });
+    // ia am removing this for now because full examples will give us better json schema detection
+    // shortenExamples(spec);
+    var outputSpec = normalizeSpec(spec, config);
+    writeSpecToFiles(outputSpec, methodList, outputFilename);
     console.log('Paths created:', Object.keys(outputSpec.paths).length);
     console.log('Operations created:', methodList.length);
 };
